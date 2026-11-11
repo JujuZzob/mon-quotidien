@@ -98,6 +98,23 @@ input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;
 .vert{width:100%;background:#4ade80;color:#0f1015;border:none;border-radius:12px;height:46px;font-weight:600;font-size:15px;font-family:inherit}
 .flash{animation:fl .6s;display:inline-block}
 @keyframes fl{0%{transform:scale(1.12)}100%{transform:scale(1)}}
+.mois{display:flex;align-items:center;gap:4px;color:#e6e6ea;font-size:14px;font-weight:600}
+.mois button{background:#1d1f27;border:1px solid #374151;color:#e6e6ea;border-radius:10px;width:34px;height:34px;font-size:18px;display:flex;align-items:center;justify-content:center;padding:0}
+.mois button:disabled{opacity:.3}
+.mois span{min-width:118px;text-align:center}
+.mt{background:none;border:1px dashed transparent;border-radius:8px;padding:4px 6px;font:inherit;font-weight:600;color:inherit;cursor:pointer}
+.rv.att .mt{color:#a7cbb4}.rv.ok .mt{color:#4ade80}
+.mt:active{border-color:#4b5563}
+.edit{background:#1d1f27;border:1px solid #2f323d;border-radius:14px;padding:12px;margin:6px 0 4px}
+.edit input{margin:4px 0 10px}
+.gris{width:100%;background:#262832;color:#e6e6ea;border:1px solid #374151;border-radius:12px;height:46px;font-weight:600;font-size:15px;font-family:inherit}
+.rouge{width:100%;background:#3b1414;color:#fca5a5;border:1px solid #7f1d1d;border-radius:12px;height:44px;font-weight:600;font-size:14px;font-family:inherit}
+.bascule{display:flex;background:#0f1015;border:1px solid #374151;border-radius:12px;padding:3px;margin-bottom:10px;cursor:pointer}
+.sens{flex:1;text-align:center;padding:8px 0;border-radius:9px;color:#9ca3af;font-weight:600;font-size:13px}
+.sens.on{background:#3b1414;color:#fca5a5}
+.sens.on.ent{background:#0f3b36;color:#2dd4bf}
+.ln.mv{cursor:pointer}
+
 </style>
 </head>
 <body>
@@ -267,81 +284,146 @@ function vueRoutine() {
 }
 
 /* ---------- Budget ---------- */
-let B = { passes: false, tout: false, form: false, bitAvant: null };
+let B = { passes: false, tout: false, form: false, sens: 'sortie', edit: null, vu: null, charge: false, bitAvant: null };
 function eur(v) { return v == null || v === '' ? '—' : Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; }
-function signe(v, sortie) { return (sortie ? (v < 0 ? '+' : '−') : (v < 0 ? '−' : '+')) + eur(Math.abs(v)); }
+function signe(v, sortie) { if (v == null) return '—'; return (sortie ? (v < 0 ? '+' : '−') : (v < 0 ? '−' : '+')) + eur(Math.abs(v)); }
 function arrondi(v) { return v > 0 ? Math.round((Math.ceil(v) - v) * 100) / 100 : 0; }
-function bitPlus(b, d) { b.bitstack = Math.round(((b.bitstack || 0) + d) * 100) / 100; }
+function bitPlus(b, d) { if (b.bitstack != null) b.bitstack = Math.round((b.bitstack + d) * 100) / 100; }
+function nombre(s) { const n = parseFloat(String(s || '').replace(/\s/g, '').replace(',', '.')); return isNaN(n) ? null : Math.round(n * 100) / 100; }
+function bv() { return B.vu || D.budget; }
 
-/** Envoie une écriture budget ; la réponse (budget relu dans le tableau) remplace l'affichage. */
+/** Envoie une écriture ; la réponse (onglet relu dans le tableau) remplace l'affichage. */
 function envoyerBudget(params) {
+  const b = bv();
   attente++;
-  file = file.then(() => api(Object.assign({ action: 'budget' }, params)))
-    .then(r => { if (attente <= 1 && r.budget) { D.budget = r.budget; sauver(); if (onglet === 'budget' || onglet === 'accueil') afficher(); } })
-    .catch(err => { toast("Non enregistré : " + err.message); attente = 0; actualiser(false); })
+  file = file.then(() => api(Object.assign({ action: 'budget', onglet: b.onglet }, params)))
+    .then(r => {
+      if (attente > 1 || !r.budget) return;
+      if (r.budget.onglet === (D.budget && D.budget.onglet)) { D.budget = r.budget; B.vu = null; } else B.vu = r.budget;
+      sauver(); if (onglet === 'budget' || onglet === 'accueil') afficher();
+    })
+    .catch(err => { toast('Non enregistré : ' + err.message); attente = 0; B.vu = null; actualiser(false); })
     .finally(() => { attente = Math.max(0, attente - 1); });
 }
+function changerMois(nom) {
+  B.edit = null; B.form = false;
+  if (nom === D.budget.onglet) { B.vu = null; return vueBudget(); }
+  B.charge = true; vueBudget();
+  api({ action: 'budget', op: 'lire', onglet: nom })
+    .then(r => { B.vu = r.budget; }).catch(e => toast('Connexion impossible : ' + e.message))
+    .finally(() => { B.charge = false; if (onglet === 'budget') vueBudget(); });
+}
 function cocherBudget(type, i) {
-  const b = D.budget;
+  const b = bv();
   if (type === 'rec') {
     const x = b.recurrents[i]; x.fait = !x.fait;
-    const s = x.fait ? 1 : -1; b.solde -= s * x.montant; bitPlus(b, s * arrondi(x.montant));
+    const s = x.fait ? 1 : -1; if (b.solde != null) b.solde -= s * x.montant; bitPlus(b, s * arrondi(x.montant));
     envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.fait ? '1' : '0' });
   } else if (type === 'rev') {
     const x = b.revenus[i]; if (!x.cochable) return; x.recu = !x.recu;
-    b.solde += (x.recu ? 1 : -1) * x.montant;
+    if (b.solde != null && x.montant != null) b.solde += (x.recu ? 1 : -1) * x.montant;
     envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.recu ? '1' : '0' });
   } else if (type === 'ep') {
-    const x = b.epargne; x.fait = !x.fait;
-    const s = x.fait ? 1 : -1; b.solde -= s * x.montant; bitPlus(b, s * arrondi(x.montant));
+    const x = b.epargne; if (x.montant == null) return toast("L'épargne sera calculée une fois le salaire saisi");
+    x.fait = !x.fait;
+    const s = x.fait ? 1 : -1; if (b.solde != null) b.solde -= s * x.montant; bitPlus(b, s * arrondi(x.montant));
     envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.fait ? '1' : '0' });
   }
   if (navigator.vibrate) navigator.vibrate(10);
-  sauver(); vueBudget();
+  vueBudget();
 }
-function ajouterDepense() {
-  const m = parseFloat(($('dm').value || '').replace(',', '.')), l = $('dl').value.trim();
-  if (!(m > 0)) return toast('Entre un montant');
+function ouvrirEdition(t, i) { B.edit = B.edit && B.edit.t === t && B.edit.i === i ? null : { t, i }; B.form = false; vueBudget(); setTimeout(() => { const e = $('em'); if (e) e.focus(); }, 60); }
+function enregistrerMontantRevenu(i) {
+  const b = bv(), x = b.revenus[i], m = nombre($('em').value);
+  if (m == null || m < 0) return toast('Entre un montant valide');
+  x.montant = m; B.edit = null; vueBudget();
+  envoyerBudget({ op: 'montant', r: x.r, lib: x.lib, m: String(m) });
+}
+function enregistrerMouvement(i) {
+  const b = bv(), x = b.mouvements[i], m = nombre($('em').value), l = $('el').value.trim();
+  if (!m || m <= 0) return toast('Entre un montant');
   if (!l) return toast('Entre un libellé');
-  const b = D.budget, a = arrondi(m);
-  b.depenses.unshift({ jour: D.auj, date: '', lib: l, montant: m });
-  b.solde -= m; bitPlus(b, a); b.prevision -= m + a; b.totJour += m; b.totMois += m;
-  B.form = false; sauver(); vueBudget();
-  envoyerBudget({ op: 'depense', lib: l, m: String(m) });
+  const signeM = $('es').dataset.sens === 'entree' ? -m : m;
+  const ancienLib = x.lib, ancienM = x.montant;
+  x.lib = l; x.montant = signeM; B.edit = null; vueBudget();
+  envoyerBudget({ op: 'modifier', r: x.r, ancienLib, ancienM: String(ancienM), lib: l, m: String(signeM) });
+}
+function supprimerMouvement(i) {
+  const b = bv(), x = b.mouvements[i];
+  if (!confirmer('Supprimer « ' + x.lib + ' » ?')) return;
+  b.mouvements.splice(i, 1); B.edit = null; vueBudget();
+  envoyerBudget({ op: 'supprimer', r: x.r, ancienLib: x.lib, ancienM: String(x.montant) });
+}
+function confirmer(msg) { return window.confirm(msg); }
+function basculerSens(id) { const e = $(id); e.dataset.sens = e.dataset.sens === 'entree' ? 'sortie' : 'entree'; dessinerSens(id); }
+function dessinerSens(id) {
+  const e = $(id); if (!e) return; const ent = e.dataset.sens === 'entree';
+  e.innerHTML = `<span class="sens ${ent ? '' : 'on'}">Sortie −</span><span class="sens ${ent ? 'on ent' : ''}">Entrée +</span>`;
+}
+function ajouterMouvement() {
+  const m = nombre($('dm').value), l = $('dl').value.trim(), ent = $('ds').dataset.sens === 'entree';
+  if (!m || m <= 0) return toast('Entre un montant');
+  if (!l) return toast('Entre un libellé');
+  const b = bv(), v = ent ? -m : m, a = arrondi(v);
+  b.mouvements.unshift({ r: 0, jour: D.auj, date: '', lib: l, montant: v });
+  if (b.solde != null) b.solde -= v; bitPlus(b, a); if (b.prevision != null) b.prevision -= v + a;
+  if (v > 0) { b.totJour += v; b.totMois += v; }
+  B.form = false; vueBudget();
+  envoyerBudget({ op: 'depense', lib: l, m: String(v) });
 }
 function vueBudget() {
-  const b = D.budget;
-  if (!b || b.erreur) { $('vue').innerHTML = `<div class="titre"><h1 style="color:#4ade80">Budget</h1></div><div class="c vide">Impossible de lire l'onglet du mois${b && b.erreur ? ' : ' + esc(b.erreur) : ''}.</div><div class="etat" id="etat"></div>`; return dessinerEtat(); }
+  const b = bv();
+  const lst = (b && b.moisDispo) || [], pos = lst.findIndex(x => x.nom === (b && b.onglet));
+  const prec = pos > 0 ? lst[pos - 1] : null, suiv = pos >= 0 && pos < lst.length - 1 ? lst[pos + 1] : null;
+  const titre = `<div class="titre" style="padding-bottom:4px"><h1 style="color:#4ade80">Budget</h1>
+    <div class="mois"><button ${prec ? `onclick="changerMois('${esc(prec.nom)}')"` : 'disabled'} aria-label="Mois précédent"><i class="ti ti-chevron-left"></i></button>
+    <span>${esc(pos >= 0 ? lst[pos].label : (b && b.mois) || '')}</span>
+    <button ${suiv ? `onclick="changerMois('${esc(suiv.nom)}')"` : 'disabled'} aria-label="Mois suivant"><i class="ti ti-chevron-right"></i></button></div></div>`;
+  if (B.charge) { $('vue').innerHTML = titre + '<div class="charge">Chargement…</div>'; return; }
+  if (!b || b.erreur || !b.revenus) { $('vue').innerHTML = titre + `<div class="c vide">Impossible de lire cet onglet${b && b.erreur ? ' : ' + esc(b.erreur) : ''}.</div><div class="etat" id="etat"></div>`; return dessinerEtat(); }
   const flash = B.bitAvant !== null && B.bitAvant !== b.bitstack; B.bitAvant = b.bitstack;
   const fait = b.recurrents.filter(x => x.fait).length;
   const ligneRec = x => { const i = b.recurrents.indexOf(x), rentree = x.montant < 0;
     return `<div class="ln ${x.fait ? 'on' : ''}"><span class="dt">${esc(x.date)}</span><span class="nm">${esc(x.lib)}</span><span class="am ${rentree ? 'p' : 'n'}" style="color:${x.fait ? '' : rentree ? '#2dd4bf' : '#fca5a5'}">${signe(x.montant, true)}</span><button class="rd" aria-label="Passé" onclick="cocherBudget('rec',${i})">${x.fait ? '<i class="ti ti-check"></i>' : ''}</button></div>`; };
   const aVenir = b.recurrents.filter(x => !x.fait), passes = b.recurrents.filter(x => x.fait);
-  const jours = []; b.depenses.forEach(x => { let j = jours.find(y => y.jour === x.jour); if (!j) jours.push(j = { jour: x.jour, date: x.date || 'Aujourd’hui', l: [] }); j.l.push(x); });
+  const jours = []; b.mouvements.forEach((x, i) => { let j = jours.find(y => y.jour === x.jour); if (!j) jours.push(j = { jour: x.jour, date: x.date, l: [] }); j.l.push([x, i]); });
   const visibles = B.tout ? jours : jours.slice(0, 3);
-  let h = `<div class="titre" style="padding-bottom:4px"><h1 style="color:#4ade80">Budget</h1><span class="lab">${esc(b.mois.charAt(0).toUpperCase() + b.mois.slice(1))} · jour ${b.jourMois}/${b.nbJours}</span></div>
-  <div class="bar" style="margin:4px 4px 12px"><div style="width:${b.jourMois / b.nbJours * 100}%;background:#4ade80"></div></div>
-  <div class="c" style="text-align:center;padding:16px"><div class="lab">Solde actuel</div><div style="color:${b.solde < 0 ? '#f87171' : '#4ade80'};font-size:34px;font-weight:600;margin:2px 0">${eur(b.solde)}</div><div class="lab">Fin de mois prévue <span style="color:#a5b4fc;font-weight:600">${eur(b.prevision)}</span></div></div>
-  <div class="g2"><div class="c"><div class="lab">Prochain salaire</div>${b.salaire ? `<div style="color:#fbbf24;font-size:22px;font-weight:600">J-${b.salaire.dans}</div><div class="lab">${esc(b.salaire.date)} · ${signe(b.salaire.montant)}</div>` : '<div class="lab" style="margin-top:6px">Reçu ce mois-ci</div>'}</div>
+  const pasCommence = b.solde == null;
+  let h = titre + `<div class="bar" style="margin:4px 4px 12px"><div style="width:${b.jourMois / b.nbJours * 100}%;background:#4ade80"></div></div>
+  <div class="c" style="text-align:center;padding:16px">${pasCommence
+    ? `<div class="lab">Solde</div><div style="color:#9ca3af;font-size:20px;font-weight:600;margin:6px 0">Le mois n'a pas commencé</div><div class="lab">Les montants s'afficheront le 1er</div>`
+    : `<div class="lab">Solde actuel</div><div style="color:${b.solde < 0 ? '#f87171' : '#4ade80'};font-size:34px;font-weight:600;margin:2px 0">${eur(b.solde)}</div><div class="lab">Fin de mois prévue <span style="color:#a5b4fc;font-weight:600">${eur(b.prevision)}</span></div>`}</div>
+  <div class="g2"><div class="c"><div class="lab">Prochain salaire</div>${b.salaire ? `<div style="color:#fbbf24;font-size:22px;font-weight:600">J-${b.salaire.dans}</div><div class="lab">${esc(b.salaire.date)} · ${b.salaire.montant == null ? 'montant à saisir' : signe(b.salaire.montant)}</div>` : '<div class="lab" style="margin-top:6px">Reçu ce mois-ci</div>'}</div>
   <div class="c" style="background:#3d1630"><div class="lab" style="color:#f9a8d4">Bitstack semaine</div><div class="${flash ? 'flash' : ''}" style="color:#f472b6;font-size:22px;font-weight:600">${eur(b.bitstack)}</div><div class="lab" style="color:#f9a8d4">prélevé vend. ${esc(b.vendredi)}</div></div></div>
   <div class="etat" id="etat"></div>
-  <div class="c"><div class="h2" style="color:#86efac">Revenus</div>${b.revenus.map((x, i) => x.report
-    ? `<div class="rv"><span class="dt">${esc(x.date)}</span><span class="nm">${esc(x.nom)}</span><span class="am" style="color:${x.montant < 0 ? '#fca5a5' : '#4ade80'}">${signe(x.montant)}</span><span style="width:28px"></span></div>`
-    : `<div class="rv ${x.recu ? 'ok' : 'att'}"><span class="dt">${esc(x.date)}</span><span class="nm">${esc(x.nom)}<span class="sub">${x.recu ? 'Reçu' : 'Prévu'} le ${esc(x.date)}</span></span><span class="am">${signe(x.montant)}</span>${x.cochable ? `<button class="rd" aria-label="Reçu" onclick="cocherBudget('rev',${i})">${x.recu ? '<i class="ti ti-check"></i>' : ''}</button>` : `<span class="rd" style="cursor:default">${x.recu ? '<i class="ti ti-check"></i>' : ''}</span>`}</div>`).join('')}</div>`;
-  if (b.epargne) h += `<div class="c" style="display:flex;align-items:center;gap:12px;${b.epargne.fait ? 'opacity:.55' : ''}"><div style="flex:1"><div class="lab">Épargne du ${esc(b.epargne.date)} · 25 % du solde</div><div style="color:#7dd3fc;font-size:19px;font-weight:600">${eur(b.epargne.montant)}</div><div class="lab">${b.epargne.fait ? 'Faite · montant figé' : 'Se recalcule jusqu’à la paye'}</div></div>
+  <div class="c"><div class="h2" style="color:#86efac">Revenus <span class="lab" style="font-weight:400">· touche un montant pour le modifier</span></div>${b.revenus.map((x, i) => {
+    if (x.report) return `<div class="rv"><span class="dt">${esc(x.date)}</span><span class="nm">${esc(x.nom)}</span><span class="am" style="color:${x.montant == null ? '#6b7280' : x.montant < 0 ? '#fca5a5' : '#4ade80'}">${signe(x.montant)}</span><span style="width:28px"></span></div>`;
+    const ed = B.edit && B.edit.t === 'rev' && B.edit.i === i;
+    return `<div class="rv ${x.recu ? 'ok' : 'att'}"><span class="dt">${esc(x.date)}</span><span class="nm">${esc(x.nom)}<span class="sub">${x.recu ? 'Reçu' : 'Prévu'} le ${esc(x.date)}</span></span>
+      <button class="am mt" onclick="ouvrirEdition('rev',${i})">${x.montant == null ? '<span style="color:#fbbf24">À saisir</span>' : signe(x.montant)}</button>
+      ${x.cochable ? `<button class="rd" aria-label="Reçu" onclick="cocherBudget('rev',${i})">${x.recu ? '<i class="ti ti-check"></i>' : ''}</button>` : `<span class="rd" style="cursor:default">${x.recu ? '<i class="ti ti-check"></i>' : ''}</span>`}</div>
+      ${ed ? `<div class="edit"><div class="lab">Montant de ${esc(x.nom)}</div><input id="em" class="gros" inputmode="decimal" value="${x.montant == null ? '' : String(x.montant).replace('.', ',')}" placeholder="0,00 €">
+        <div class="g2" style="margin:0"><button class="gris" onclick="B.edit=null;vueBudget()">Annuler</button><button class="vert" onclick="enregistrerMontantRevenu(${i})">Enregistrer</button></div></div>` : ''}`; }).join('')}</div>`;
+  if (b.epargne) h += `<div class="c" style="display:flex;align-items:center;gap:12px;${b.epargne.fait ? 'opacity:.55' : ''}"><div style="flex:1"><div class="lab">Épargne du ${esc(b.epargne.date)} · 25 % du solde</div><div style="color:#7dd3fc;font-size:19px;font-weight:600">${b.epargne.montant == null ? '—' : eur(b.epargne.montant)}</div><div class="lab">${b.epargne.montant == null ? 'Calculée une fois le salaire saisi' : b.epargne.fait ? 'Faite · montant figé' : 'Se recalcule jusqu’à la paye'}</div></div>
     <button class="rd" style="${b.epargne.fait ? 'background:#7dd3fc;border-color:#7dd3fc' : ''}" aria-label="Épargne faite" onclick="cocherBudget('ep')">${b.epargne.fait ? '<i class="ti ti-check"></i>' : ''}</button></div>`;
   h += `<div class="c"><div style="display:flex;justify-content:space-between;align-items:center"><span class="h2" style="color:#d8b4fe">Récurrent</span><span style="background:#3b0764;color:#d8b4fe;padding:2px 9px;border-radius:8px;font-size:12px">${fait} / ${b.recurrents.length} passés</span></div>
   <div class="bar"><div style="width:${b.recurrents.length ? fait / b.recurrents.length * 100 : 0}%;background:#a78bfa"></div></div>
   ${aVenir.length ? '<div class="lab" style="margin:6px 0 2px">À venir</div>' + aVenir.map(ligneRec).join('') : '<div class="lab" style="margin:6px 0">Tout est passé ce mois-ci</div>'}
   ${passes.length ? `<button class="pill" onclick="B.passes=!B.passes;vueBudget()">${B.passes ? 'Masquer' : 'Voir'} les ${passes.length} passés <i class="ti ti-chevron-${B.passes ? 'up' : 'down'}"></i></button>` + (B.passes ? passes.map(ligneRec).join('') : '') : ''}</div>
-  <div class="ajout"><button onclick="B.form=!B.form;vueBudget();if(B.form)setTimeout(()=>$('dm').focus(),50)"><i class="ti ti-${B.form ? 'x' : 'plus'}"></i> ${B.form ? 'Fermer' : 'Ajouter une dépense'}</button></div>
-  ${B.form ? `<div class="feuille"><div class="lab">Montant</div><input id="dm" class="gros" inputmode="decimal" placeholder="0,00 €"><div class="lab">Libellé</div><input id="dl" placeholder="Boulangerie" autocapitalize="sentences"><button class="vert" onclick="ajouterDepense()">Enregistrer · aujourd'hui</button></div>` : ''}
-  <div class="c"><div class="h2" style="color:#fdba74">Dépenses</div>
-  <div class="g2" style="margin:8px 0 2px"><div style="background:#0c2a4a;border-radius:10px;padding:8px 10px"><div class="lab" style="color:#7dd3fc">Aujourd'hui</div><div style="color:#7dd3fc;font-size:17px;font-weight:600">${eur(b.totJour)}</div></div>
-  <div style="background:#2a1a14;border-radius:10px;padding:8px 10px"><div class="lab" style="color:#fdba74">Ce mois-ci</div><div style="color:#fdba74;font-size:17px;font-weight:600">${eur(b.totMois)}</div></div></div>
-  ${visibles.map(j => `<div class="jour">${j.jour === D.auj ? "Aujourd'hui" : esc(j.date)}</div>` + j.l.map(x => `<div class="ln" style="${j.jour === D.auj ? 'background:#0c2a4a;border-radius:8px;padding:8px;margin-top:4px;border-top:none' : ''}"><span class="nm">${esc(x.lib)}</span><span class="am" style="color:#fca5a5">−${eur(x.montant)}</span></div>`).join('')).join('')}
-  ${jours.length > 3 ? `<button class="pill" onclick="B.tout=!B.tout;vueBudget()">${B.tout ? 'Réduire' : 'Voir tout le mois'} <i class="ti ti-chevron-${B.tout ? 'up' : 'down'}"></i></button>` : ''}${!jours.length ? '<div class="lab" style="margin-top:8px">Aucune dépense ce mois-ci</div>' : ''}</div>`;
+  ${b.courant ? `<div class="ajout"><button onclick="B.form=!B.form;B.edit=null;vueBudget();if(B.form){dessinerSens('ds');setTimeout(()=>$('dm').focus(),50)}"><i class="ti ti-${B.form ? 'x' : 'plus'}"></i> ${B.form ? 'Fermer' : 'Ajouter un mouvement'}</button></div>` : ''}
+  ${B.form && b.courant ? `<div class="feuille"><div class="bascule" id="ds" data-sens="sortie" onclick="basculerSens('ds')"></div><div class="lab">Montant</div><input id="dm" class="gros" inputmode="decimal" placeholder="0,00 €"><div class="lab">Libellé</div><input id="dl" placeholder="Boulangerie" autocapitalize="sentences"><button class="vert" onclick="ajouterMouvement()">Enregistrer · aujourd'hui</button></div>` : ''}
+  <div class="c"><div class="h2" style="color:#fdba74">Mouvements <span class="lab" style="font-weight:400">· touche une ligne pour la modifier</span></div>
+  <div class="g2" style="margin:8px 0 2px"><div style="background:#0c2a4a;border-radius:10px;padding:8px 10px"><div class="lab" style="color:#7dd3fc">Dépensé aujourd'hui</div><div style="color:#7dd3fc;font-size:17px;font-weight:600">${eur(b.totJour)}</div></div>
+  <div style="background:#2a1a14;border-radius:10px;padding:8px 10px"><div class="lab" style="color:#fdba74">Dépensé ce mois-ci</div><div style="color:#fdba74;font-size:17px;font-weight:600">${eur(b.totMois)}</div></div></div>
+  ${visibles.map(j => `<div class="jour">${j.jour === D.auj ? "Aujourd'hui" : esc(j.date)}</div>` + j.l.map(([x, i]) => {
+    const ed = B.edit && B.edit.t === 'mvt' && B.edit.i === i, ent = x.montant < 0;
+    return `<div class="ln mv" onclick="${x.r ? `ouvrirEdition('mvt',${i})` : ''}" style="${j.jour === D.auj ? 'background:#0c2a4a;border-radius:8px;padding:8px;margin-top:4px;border-top:none' : ''}"><span class="nm">${esc(x.lib)}</span><span class="am" style="color:${ent ? '#2dd4bf' : '#fca5a5'}">${signe(x.montant, true)}</span><i class="ti ti-chevron-${ed ? 'up' : 'right'}" style="color:#4b5563"></i></div>
+    ${ed ? `<div class="edit"><div class="bascule" id="es" data-sens="${ent ? 'entree' : 'sortie'}" onclick="basculerSens('es')"></div><div class="lab">Montant</div><input id="em" class="gros" inputmode="decimal" value="${String(Math.abs(x.montant)).replace('.', ',')}"><div class="lab">Libellé</div><input id="el" value="${esc(x.lib)}">
+      <div class="g2" style="margin:0 0 8px"><button class="gris" onclick="B.edit=null;vueBudget()">Annuler</button><button class="vert" onclick="enregistrerMouvement(${i})">Enregistrer</button></div>
+      <button class="rouge" onclick="supprimerMouvement(${i})"><i class="ti ti-trash"></i> Supprimer</button></div>` : ''}`; }).join('')).join('')}
+  ${jours.length > 3 ? `<button class="pill" onclick="B.tout=!B.tout;vueBudget()">${B.tout ? 'Réduire' : 'Voir tout le mois'} <i class="ti ti-chevron-${B.tout ? 'up' : 'down'}"></i></button>` : ''}${!jours.length ? '<div class="lab" style="margin-top:8px">Aucun mouvement ce mois-ci</div>' : ''}</div>`;
   $('vue').innerHTML = h;
+  if (B.edit && B.edit.t === 'mvt') dessinerSens('es');
   dessinerEtat();
 }
 
