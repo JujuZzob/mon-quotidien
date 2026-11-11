@@ -272,7 +272,7 @@ function vueRoutine() {
     <div class="bar"><div style="width:${g.total ? g.faits / g.total * 100 : 0}%"></div></div><div class="tl">` +
     g.habitudes.map((x, hi) => {
       const req = x.gestes.filter(y => y.requis), k = req.filter(y => y.fait).length;
-      const large = (hi === g.habitudes.length - 1 && g.habitudes.length % 2 === 1) || x.gestes.some(y => y.texte.length > 30);
+      const large = (hi === g.habitudes.length - 1 && g.habitudes.length % 2 === 1) || x.gestes.some(y => y.texte.length > 40);
       const cls = x.repos ? 'rest' : x.complet ? 'done' : k ? 'half' : '';
       return `<div class="t ${cls} ${large ? 'large' : ''}"><div class="tn"><span>${esc(x.nom)}</span>${req.length > 1 && !x.complet ? `<span class="k">${k}/${req.length}</span>` : x.complet ? '<i class="ti ti-circle-check" style="color:#2dd4bf;font-size:17px"></i>' : ''}</div>` +
         x.gestes.map((y, xi) => !y.requis && !y.fait
