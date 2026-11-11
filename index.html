@@ -64,6 +64,40 @@ nav i{font-size:23px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 90px);background:#3b1414;color:#fca5a5;padding:9px 14px;border-radius:10px;font-size:13px;display:none;z-index:9;max-width:90%}
 input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;color:#e6e6ea;font-size:15px;padding:11px;margin:6px 0 12px}
 .btn{width:100%;background:#2dd4bf;color:#0f1015;border:none;border-radius:12px;font-size:15px;font-weight:600;padding:12px}
+/* Budget */
+.h2{font-weight:600;font-size:14px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.g2 .c{margin:0}
+.ln{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #262832;min-height:46px}
+.ln:first-of-type{border-top:none}
+.ln .dt{color:#9ca3af;width:40px;font-size:12px;flex-shrink:0}
+.ln .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ln .am{text-align:right;white-space:nowrap}
+.rd{width:28px;height:28px;border-radius:50%;border:2px solid #9ca3af;background:#1d1f27;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#0f1015;font-size:15px;cursor:pointer;padding:0}
+.rd:active{transform:scale(.92)}
+.ln.on .rd{background:#a78bfa;border-color:#a78bfa}
+.ln.on .nm,.ln.on .dt{color:#6b7280}
+.ln.on .am.n{color:#9a6a6a}
+.ln.on .am.p{color:#4b8f88}
+.rv{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;margin-top:6px;min-height:48px;border:1px solid transparent}
+.rv .dt{color:#9ca3af;width:40px;font-size:12px}
+.rv .nm{flex:1}
+.rv .sub{display:block;font-size:11px;color:#6b7280}
+.rv .am{white-space:nowrap;font-weight:600}
+.rv.att .am{color:#a7cbb4}
+.rv.ok{background:#0f2a1a;border-color:#166534}
+.rv.ok .nm{color:#bbf7d0}.rv.ok .sub{color:#4ade80}.rv.ok .am{color:#4ade80}
+.rv.ok .rd{background:#4ade80;border-color:#4ade80}
+.pill{display:block;margin:10px auto 2px;background:#262832;border:1px solid #374151;color:#e6e6ea;font-size:12px;padding:8px 15px;border-radius:16px;cursor:pointer;font-family:inherit}
+.jour{color:#9ca3af;font-size:11px;margin:10px 0 0}
+.ajout{display:flex;justify-content:center;margin:2px 0 12px}
+.ajout button{background:#4ade80;color:#0f1015;border:none;border-radius:24px;padding:12px 22px;font-weight:600;font-size:15px;cursor:pointer;font-family:inherit}
+.feuille{background:#1d1f27;border-radius:18px;padding:14px;margin-bottom:10px;border:1px solid #2f323d}
+.feuille input{margin:4px 0 10px}
+.feuille .gros{font-size:26px;font-weight:600;text-align:center;height:56px}
+.vert{width:100%;background:#4ade80;color:#0f1015;border:none;border-radius:12px;height:46px;font-weight:600;font-size:15px;font-family:inherit}
+.flash{animation:fl .6s;display:inline-block}
+@keyframes fl{0%{transform:scale(1.12)}100%{transform:scale(1)}}
 </style>
 </head>
 <body>
@@ -138,6 +172,7 @@ function afficher() {
   if (!jourVu) jourVu = D.auj;
   if (onglet === 'accueil') vueAccueil();
   else if (onglet === 'routine') vueRoutine();
+  else if (onglet === 'budget') vueBudget();
   else vueBientot();
   dessinerEtat();
 }
@@ -163,9 +198,9 @@ function vueAccueil() {
   const auj = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const b = D.budget, j = D.jours.find(x => x.jour === D.auj), e = j && j.etat;
   let h = `<div class="titre"><h1 style="color:#7dd3fc">Bonjour</h1><span class="lab">${auj}</span></div><div class="etat" id="etat"></div>`;
-  if (b) h += `<div class="c carte" onclick="aller('budget')"><div class="lab"><i class="ti ti-wallet"></i> Budget</div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="big" style="color:#4ade80">${esc(b.solde)}</span><span style="color:#f472b6">Bitstack ${esc(b.bitstack)}</span></div>
-    <div class="lab">Fin de mois prévue ${esc(b.prevision)}</div></div>`;
+  if (b && !b.erreur) h += `<div class="c carte" onclick="aller('budget')"><div class="lab"><i class="ti ti-wallet"></i> Budget</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="big" style="color:${b.solde < 0 ? '#f87171' : '#4ade80'}">${eur(b.solde)}</span><span style="color:#f472b6">Bitstack ${eur(b.bitstack)}</span></div>
+    <div class="lab">Fin de mois prévue ${eur(b.prevision)}${b.salaire ? ' · salaire J-' + b.salaire.dans : ''}</div></div>`;
   if (e) {
     const rest = [];
     e.groupes.forEach(g => g.habitudes.forEach(x => { if (!x.repos && !x.complet) rest.push(x.nom); }));
@@ -227,6 +262,85 @@ function vueRoutine() {
           : `<div class="g ${y.fait ? 'ok' : ''}" role="checkbox" aria-checked="${y.fait}" onclick="cocher(${gi},${hi},${xi})"><span class="d">${y.fait ? '<i class="ti ti-check"></i>' : ''}</span><span>${y.moment ? `<span class="mo">${esc(y.moment)}</span>` : ''}${esc(y.texte)}</span></div>`).join('') + '</div>';
     }).join('') + '</div></div>';
   }).join('');
+  $('vue').innerHTML = h;
+  dessinerEtat();
+}
+
+/* ---------- Budget ---------- */
+let B = { passes: false, tout: false, form: false, bitAvant: null };
+function eur(v) { return v == null || v === '' ? '—' : Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; }
+function signe(v, sortie) { return (sortie ? (v < 0 ? '+' : '−') : (v < 0 ? '−' : '+')) + eur(Math.abs(v)); }
+function arrondi(v) { return v > 0 ? Math.round((Math.ceil(v) - v) * 100) / 100 : 0; }
+function bitPlus(b, d) { b.bitstack = Math.round(((b.bitstack || 0) + d) * 100) / 100; }
+
+/** Envoie une écriture budget ; la réponse (budget relu dans le tableau) remplace l'affichage. */
+function envoyerBudget(params) {
+  attente++;
+  file = file.then(() => api(Object.assign({ action: 'budget' }, params)))
+    .then(r => { if (attente <= 1 && r.budget) { D.budget = r.budget; sauver(); if (onglet === 'budget' || onglet === 'accueil') afficher(); } })
+    .catch(err => { toast("Non enregistré : " + err.message); attente = 0; actualiser(false); })
+    .finally(() => { attente = Math.max(0, attente - 1); });
+}
+function cocherBudget(type, i) {
+  const b = D.budget;
+  if (type === 'rec') {
+    const x = b.recurrents[i]; x.fait = !x.fait;
+    const s = x.fait ? 1 : -1; b.solde -= s * x.montant; bitPlus(b, s * arrondi(x.montant));
+    envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.fait ? '1' : '0' });
+  } else if (type === 'rev') {
+    const x = b.revenus[i]; if (!x.cochable) return; x.recu = !x.recu;
+    b.solde += (x.recu ? 1 : -1) * x.montant;
+    envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.recu ? '1' : '0' });
+  } else if (type === 'ep') {
+    const x = b.epargne; x.fait = !x.fait;
+    const s = x.fait ? 1 : -1; b.solde -= s * x.montant; bitPlus(b, s * arrondi(x.montant));
+    envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.fait ? '1' : '0' });
+  }
+  if (navigator.vibrate) navigator.vibrate(10);
+  sauver(); vueBudget();
+}
+function ajouterDepense() {
+  const m = parseFloat(($('dm').value || '').replace(',', '.')), l = $('dl').value.trim();
+  if (!(m > 0)) return toast('Entre un montant');
+  if (!l) return toast('Entre un libellé');
+  const b = D.budget, a = arrondi(m);
+  b.depenses.unshift({ jour: D.auj, date: '', lib: l, montant: m });
+  b.solde -= m; bitPlus(b, a); b.prevision -= m + a; b.totJour += m; b.totMois += m;
+  B.form = false; sauver(); vueBudget();
+  envoyerBudget({ op: 'depense', lib: l, m: String(m) });
+}
+function vueBudget() {
+  const b = D.budget;
+  if (!b || b.erreur) { $('vue').innerHTML = `<div class="titre"><h1 style="color:#4ade80">Budget</h1></div><div class="c vide">Impossible de lire l'onglet du mois${b && b.erreur ? ' : ' + esc(b.erreur) : ''}.</div><div class="etat" id="etat"></div>`; return dessinerEtat(); }
+  const flash = B.bitAvant !== null && B.bitAvant !== b.bitstack; B.bitAvant = b.bitstack;
+  const fait = b.recurrents.filter(x => x.fait).length;
+  const ligneRec = x => { const i = b.recurrents.indexOf(x), rentree = x.montant < 0;
+    return `<div class="ln ${x.fait ? 'on' : ''}"><span class="dt">${esc(x.date)}</span><span class="nm">${esc(x.lib)}</span><span class="am ${rentree ? 'p' : 'n'}" style="color:${x.fait ? '' : rentree ? '#2dd4bf' : '#fca5a5'}">${signe(x.montant, true)}</span><button class="rd" aria-label="Passé" onclick="cocherBudget('rec',${i})">${x.fait ? '<i class="ti ti-check"></i>' : ''}</button></div>`; };
+  const aVenir = b.recurrents.filter(x => !x.fait), passes = b.recurrents.filter(x => x.fait);
+  const jours = []; b.depenses.forEach(x => { let j = jours.find(y => y.jour === x.jour); if (!j) jours.push(j = { jour: x.jour, date: x.date || 'Aujourd’hui', l: [] }); j.l.push(x); });
+  const visibles = B.tout ? jours : jours.slice(0, 3);
+  let h = `<div class="titre" style="padding-bottom:4px"><h1 style="color:#4ade80">Budget</h1><span class="lab">${esc(b.mois.charAt(0).toUpperCase() + b.mois.slice(1))} · jour ${b.jourMois}/${b.nbJours}</span></div>
+  <div class="bar" style="margin:4px 4px 12px"><div style="width:${b.jourMois / b.nbJours * 100}%;background:#4ade80"></div></div>
+  <div class="c" style="text-align:center;padding:16px"><div class="lab">Solde actuel</div><div style="color:${b.solde < 0 ? '#f87171' : '#4ade80'};font-size:34px;font-weight:600;margin:2px 0">${eur(b.solde)}</div><div class="lab">Fin de mois prévue <span style="color:#a5b4fc;font-weight:600">${eur(b.prevision)}</span></div></div>
+  <div class="g2"><div class="c"><div class="lab">Prochain salaire</div>${b.salaire ? `<div style="color:#fbbf24;font-size:22px;font-weight:600">J-${b.salaire.dans}</div><div class="lab">${esc(b.salaire.date)} · ${signe(b.salaire.montant)}</div>` : '<div class="lab" style="margin-top:6px">Reçu ce mois-ci</div>'}</div>
+  <div class="c" style="background:#3d1630"><div class="lab" style="color:#f9a8d4">Bitstack semaine</div><div class="${flash ? 'flash' : ''}" style="color:#f472b6;font-size:22px;font-weight:600">${eur(b.bitstack)}</div><div class="lab" style="color:#f9a8d4">prélevé vend. ${esc(b.vendredi)}</div></div></div>
+  <div class="etat" id="etat"></div>
+  <div class="c"><div class="h2" style="color:#86efac">Revenus</div>${b.revenus.map((x, i) => x.report
+    ? `<div class="rv"><span class="dt">${esc(x.date)}</span><span class="nm">${esc(x.nom)}</span><span class="am" style="color:${x.montant < 0 ? '#fca5a5' : '#4ade80'}">${signe(x.montant)}</span><span style="width:28px"></span></div>`
+    : `<div class="rv ${x.recu ? 'ok' : 'att'}"><span class="dt">${esc(x.date)}</span><span class="nm">${esc(x.nom)}<span class="sub">${x.recu ? 'Reçu' : 'Prévu'} le ${esc(x.date)}</span></span><span class="am">${signe(x.montant)}</span>${x.cochable ? `<button class="rd" aria-label="Reçu" onclick="cocherBudget('rev',${i})">${x.recu ? '<i class="ti ti-check"></i>' : ''}</button>` : `<span class="rd" style="cursor:default">${x.recu ? '<i class="ti ti-check"></i>' : ''}</span>`}</div>`).join('')}</div>`;
+  if (b.epargne) h += `<div class="c" style="display:flex;align-items:center;gap:12px;${b.epargne.fait ? 'opacity:.55' : ''}"><div style="flex:1"><div class="lab">Épargne du ${esc(b.epargne.date)} · 25 % du solde</div><div style="color:#7dd3fc;font-size:19px;font-weight:600">${eur(b.epargne.montant)}</div><div class="lab">${b.epargne.fait ? 'Faite · montant figé' : 'Se recalcule jusqu’à la paye'}</div></div>
+    <button class="rd" style="${b.epargne.fait ? 'background:#7dd3fc;border-color:#7dd3fc' : ''}" aria-label="Épargne faite" onclick="cocherBudget('ep')">${b.epargne.fait ? '<i class="ti ti-check"></i>' : ''}</button></div>`;
+  h += `<div class="c"><div style="display:flex;justify-content:space-between;align-items:center"><span class="h2" style="color:#d8b4fe">Récurrent</span><span style="background:#3b0764;color:#d8b4fe;padding:2px 9px;border-radius:8px;font-size:12px">${fait} / ${b.recurrents.length} passés</span></div>
+  <div class="bar"><div style="width:${b.recurrents.length ? fait / b.recurrents.length * 100 : 0}%;background:#a78bfa"></div></div>
+  ${aVenir.length ? '<div class="lab" style="margin:6px 0 2px">À venir</div>' + aVenir.map(ligneRec).join('') : '<div class="lab" style="margin:6px 0">Tout est passé ce mois-ci</div>'}
+  ${passes.length ? `<button class="pill" onclick="B.passes=!B.passes;vueBudget()">${B.passes ? 'Masquer' : 'Voir'} les ${passes.length} passés <i class="ti ti-chevron-${B.passes ? 'up' : 'down'}"></i></button>` + (B.passes ? passes.map(ligneRec).join('') : '') : ''}</div>
+  <div class="ajout"><button onclick="B.form=!B.form;vueBudget();if(B.form)setTimeout(()=>$('dm').focus(),50)"><i class="ti ti-${B.form ? 'x' : 'plus'}"></i> ${B.form ? 'Fermer' : 'Ajouter une dépense'}</button></div>
+  ${B.form ? `<div class="feuille"><div class="lab">Montant</div><input id="dm" class="gros" inputmode="decimal" placeholder="0,00 €"><div class="lab">Libellé</div><input id="dl" placeholder="Boulangerie" autocapitalize="sentences"><button class="vert" onclick="ajouterDepense()">Enregistrer · aujourd'hui</button></div>` : ''}
+  <div class="c"><div class="h2" style="color:#fdba74">Dépenses</div>
+  <div class="g2" style="margin:8px 0 2px"><div style="background:#0c2a4a;border-radius:10px;padding:8px 10px"><div class="lab" style="color:#7dd3fc">Aujourd'hui</div><div style="color:#7dd3fc;font-size:17px;font-weight:600">${eur(b.totJour)}</div></div>
+  <div style="background:#2a1a14;border-radius:10px;padding:8px 10px"><div class="lab" style="color:#fdba74">Ce mois-ci</div><div style="color:#fdba74;font-size:17px;font-weight:600">${eur(b.totMois)}</div></div></div>
+  ${visibles.map(j => `<div class="jour">${j.jour === D.auj ? "Aujourd'hui" : esc(j.date)}</div>` + j.l.map(x => `<div class="ln" style="${j.jour === D.auj ? 'background:#0c2a4a;border-radius:8px;padding:8px;margin-top:4px;border-top:none' : ''}"><span class="nm">${esc(x.lib)}</span><span class="am" style="color:#fca5a5">−${eur(x.montant)}</span></div>`).join('')).join('')}
+  ${jours.length > 3 ? `<button class="pill" onclick="B.tout=!B.tout;vueBudget()">${B.tout ? 'Réduire' : 'Voir tout le mois'} <i class="ti ti-chevron-${B.tout ? 'up' : 'down'}"></i></button>` : ''}${!jours.length ? '<div class="lab" style="margin-top:8px">Aucune dépense ce mois-ci</div>' : ''}</div>`;
   $('vue').innerHTML = h;
   dessinerEtat();
 }
