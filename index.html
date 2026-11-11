@@ -131,12 +131,32 @@ input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;
 .ln.stock .rd{background:#fbbf24;border-color:#fbbf24}
 .ln.stock .nm{color:#6b7280}
 
-
+/* Sport */
+.sn{font-size:17px;font-weight:600}
+.tgv{font-size:11px;color:#8fb996}
+.bt{background:#262832;border:none;color:#e6e6ea;border-radius:16px;height:30px;padding:0 11px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap}
+.ex{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #262832}
+.srs{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
+.sr{width:32px;height:32px;border-radius:50%;border:2px solid #3a3f47;background:none;color:#9ca3af;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit;cursor:pointer}
+.sr.ok{background:#8fb996;border-color:#8fb996;color:#10261a}
+.vv{width:100%;margin-top:10px;height:38px;border:none;border-radius:12px;background:#22322a;color:#cfe3d3;font-size:13px;font-family:inherit;cursor:pointer}
+.pl{display:inline-block;background:#262832;border-radius:12px;padding:3px 9px;font-size:12px;color:#b8bec6;margin:4px 4px 0 0}
+.pl.der{background:#2c4235;color:#cfe3d3}
+.coeur{background:#22322a;border-radius:12px;padding:10px 12px;margin-top:10px}
+.fait{background:none;border:2px solid #3a3f47;color:#9ca3af;border-radius:16px;height:32px;padding:0 12px;font-size:13px;font-family:inherit;cursor:pointer}
+.fait.ok{background:#8fb996;border-color:#8fb996;color:#10261a}
+.chx{display:inline-block;border:1px solid #374151;border-radius:16px;padding:7px 12px;margin:5px 5px 0 0;cursor:pointer;font-size:13px}
+.chx.on{background:#8fb996;border-color:#8fb996;color:#10261a}
+.ssb{border-left:2px solid #8fb996;padding-left:10px}
+.mt2{background:#1d1f27;border-radius:10px;padding:6px 9px}.mt2 div{font-size:15px;font-weight:600}
+.wkm button.sel.sp{border-color:#8fb996;color:#8fb996;background:#1a261e}
+.minu{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 66px);background:#1d1f27;border:1px solid #2f323d;border-radius:14px;padding:10px 12px;display:none;align-items:center;gap:10px;z-index:4}
 </style>
 </head>
 <body>
 <main id="vue"><div class="charge">Chargement…</div></main>
 <div class="toast" id="toast"></div>
+<div class="minu" id="minu"><i class="ti ti-clock" style="font-size:20px;color:#8fb996"></i><div style="flex:1;min-width:0"><div class="lab" id="mlib" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div style="height:4px;background:#2f343c;border-radius:4px;margin-top:6px"><div id="mbar" style="height:4px;width:0;background:#8fb996;border-radius:4px"></div></div></div><div id="mtps" style="font-size:20px;font-weight:600;min-width:52px;text-align:right"></div><button class="bt" onclick="passerMinu()">Passer</button></div>
 <nav id="nav"></nav>
 
 <script>
@@ -150,7 +170,7 @@ const ONGLETS = [
   ['budget', 'ti-wallet', 'Budget', '#4ade80'],
   ['routine', 'ti-checklist', 'Routine', '#2dd4bf'],
   ['menu', 'ti-tools-kitchen-2', 'Menu', '#fbbf24'],
-  ['sport', 'ti-barbell', 'Sport', '#a78bfa']
+  ['sport', 'ti-barbell', 'Sport', '#8fb996']
 ];
 let onglet = localStorage.getItem('mq_onglet') || 'accueil';
 let D = null, jourVu = null, sync = false, file = Promise.resolve(), attente = 0, minuterie = null;
@@ -196,7 +216,7 @@ function dessinerEtat() {
 }
 
 /* ---------- Navigation ---------- */
-function aller(o) { onglet = o; localStorage.setItem('mq_onglet', o); dessinerNav(); afficher(); window.scrollTo(0, 0); }
+function aller(o) { if (o !== 'sport') { S.vue = 'jour'; S.chg = null; } onglet = o; localStorage.setItem('mq_onglet', o); dessinerNav(); afficher(); window.scrollTo(0, 0); }
 function dessinerNav() {
   $('nav').innerHTML = ONGLETS.map(x =>
     `<button onclick="aller('${x[0]}')" style="color:${onglet === x[0] ? x[3] : '#6b7280'}"><i class="ti ${x[1]}" aria-hidden="true"></i>${x[2]}</button>`).join('');
@@ -209,6 +229,7 @@ function afficher() {
   else if (onglet === 'routine') vueRoutine();
   else if (onglet === 'budget') vueBudget();
   else if (onglet === 'menu') vueMenu();
+  else if (onglet === 'sport') vueSport();
   else vueBientot();
   dessinerEtat();
 }
@@ -245,7 +266,7 @@ function vueAccueil() {
     <div class="lab">${rest.length ? 'À faire : ' + esc(rest.slice(0, 4).join(', ')) + (rest.length > 4 ? '…' : '') : 'Tout est fait'}</div></div></div>`;
   }
   h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-    <div class="c" style="margin:0"><div class="lab"><i class="ti ti-barbell"></i> Sport</div><div class="lab" style="margin-top:6px">Bientôt</div></div>
+    ${carteSport()}
     ${carteMenu()}</div>`;
   $('vue').innerHTML = h;
 }
@@ -533,6 +554,178 @@ function vueMenu() {
   ${M.tout ? '<div class="lab" style="margin:8px 0 2px">Décoche ce qui est fini pour l’ajouter à « Il manque »</div>' + m.courses.map((x, i) => `<div class="ln ${x.stock ? 'stock' : ''}"><span class="nm">${esc(x.lib)}</span><button class="rd" aria-label="En stock" onclick="cocherCourse(${i})">${x.stock ? '<i class="ti ti-check"></i>' : ''}</button></div>`).join('') : ''}</div>`;
   $('vue').innerHTML = h;
   dessinerEtat();
+}
+
+/* ---------- Sport ---------- */
+const VERT = '#8fb996';
+let S = { jour: null, vue: 'jour', m: null, chg: null };
+let SER = {};
+try { SER = JSON.parse(localStorage.getItem('mq_series')) || {}; } catch (e) {}
+(function nettoyer() {
+  const lim = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10);
+  Object.keys(SER).forEach(k => { if (k.split('|')[0] < lim) delete SER[k]; });
+})();
+function sauverSeries() { try { localStorage.setItem('mq_series', JSON.stringify(SER)); } catch (e) {} }
+function cleS(s) { return String(s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function progDe(nom) { return nom && D.sport && D.sport.programme ? D.sport.programme[cleS(nom)] || null : null; }
+function seancesDu(i) { const j = D.sport.jours[i]; return [['Matin', j['Matin']], ['Après-midi', j['Après-midi']]]; }
+function nomJourSport(i) { const d = new Date(D.sport.jours[i].jour + 'T12:00'); const t = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); return t.charAt(0).toUpperCase() + t.slice(1); }
+
+/* Lien avec la case Sport de la Routine */
+function gesteSport(jour, m) {
+  const j = D.jours.find(x => x.jour === jour), cle = (D.sport.cles || {})[m];
+  if (!j || !j.etat || !cle) return null;
+  for (const g of j.etat.groupes) for (const h of g.habitudes) for (const x of h.gestes) if (x.cle === cle) return { j, x };
+  return null;
+}
+function marquerSport(jour, m, v) {
+  const r = gesteSport(jour, m);
+  if (!r || r.x.fait === v) return;
+  r.x.fait = v; r.j.vide = false; recalculer(r.j.etat); sauver();
+  attente++; dessinerEtat();
+  file = file.then(() => api({ action: 'geste', jour, cle: r.x.cle, v: v ? '1' : '0' }))
+    .catch(err => { toast("Non enregistré : " + err.message); attente = 0; actualiser(false); })
+    .finally(() => { attente = Math.max(0, attente - 1); dessinerEtat(); if (!attente) actualiserBientot(); });
+}
+
+/* Séries cochées (gardées sur le téléphone) */
+function serie(jour, m, i, k) {
+  const id = jour + '|' + m + '|' + i, p = progDe(D.sport.jours[S.jour][m]), e = p.exos[i];
+  const a = SER[id] || (SER[id] = []);
+  a[k] = !a[k]; sauverSeries();
+  if (navigator.vibrate) navigator.vibrate(10);
+  if (a[k] && e.ss !== 'debut' && e.sec) lancerMinu(e.sec, e.nom);
+  const cibles = p.type === 'course' ? p.exos.map((x, n) => [x, n]).filter(([x]) => !/^x$/i.test(x.rir)) : p.exos.map((x, n) => [x, n]);
+  const fini = cibles.every(([x, n]) => { const s = SER[jour + '|' + m + '|' + n] || []; for (let q = 0; q < x.n; q++) if (!s[q]) return false; return true; });
+  if (fini) { marquerSport(jour, m, true); toast('Séance terminée, bravo'); }
+  vueSport();
+}
+function ronds(jour, m, i, n) {
+  const s = SER[jour + '|' + m + '|' + i] || []; let h = '';
+  for (let k = 0; k < n; k++) h += `<button class="sr ${s[k] ? 'ok' : ''}" aria-label="Série ${k + 1}" onclick="serie('${jour}','${m}',${i},${k})">${s[k] ? '<i class="ti ti-check"></i>' : k + 1}</button>`;
+  return `<div class="srs">${h}</div>`;
+}
+function compte(jour, m, p) {
+  let f = 0, t = 0;
+  p.exos.forEach((e, i) => { if (p.type === 'course' && /^x$/i.test(e.rir)) return; t += e.n; f += (SER[jour + '|' + m + '|' + i] || []).slice(0, e.n).filter(Boolean).length; });
+  return [f, t];
+}
+
+/* Minuteur de repos */
+let T = { fin: 0, tot: 0, nom: '', sonne: true };
+function lancerMinu(sec, nom) { T = { fin: Date.now() + sec * 1000, tot: sec, nom, sonne: false }; tickMinu(); }
+function passerMinu() { T = { fin: 0, tot: 0, nom: '', sonne: true }; tickMinu(); }
+function tickMinu() {
+  const el = $('minu'); if (!el) return;
+  el.style.display = onglet === 'sport' ? 'flex' : 'none';
+  const r = Math.max(0, Math.ceil((T.fin - Date.now()) / 1000));
+  if (T.tot && !r && !T.sonne) { T.sonne = true; if (navigator.vibrate) navigator.vibrate([200, 100, 200]); }
+  $('mtps').textContent = T.tot ? Math.floor(r / 60) + ':' + String(r % 60).padStart(2, '0') : '–';
+  $('mbar').style.width = T.tot ? Math.round((T.tot - r) / T.tot * 100) + '%' : '0';
+  $('mlib').textContent = !T.tot ? 'Repos · coche une série pour lancer' : r ? 'Repos · ' + T.nom : "C'est reparti";
+}
+setInterval(tickMinu, 500);
+
+/* Changer une séance */
+function ouvrirChg(m) { const v = D.sport.jours[S.jour][m]; S.chg = { m, choix: v || 'Repos', libre: '', portee: 'jour' }; vueSport(); }
+function choisirChg(i) { S.chg.choix = i < 0 ? 'Repos' : D.sport.liste[i]; S.chg.libre = ''; vueSport(); }
+function validerChg() {
+  const c = S.chg, v = (c.libre || '').trim() || c.choix;
+  if (!v) return toast('Choisis une séance ou écris-en une');
+  const jr = D.sport.jours[S.jour], jour = jr.jour, m = c.m;
+  jr[m] = v === 'Repos' ? '' : v;
+  if (v !== 'Repos' && !D.sport.liste.some(x => cleS(x) === cleS(v))) D.sport.liste.push(v);
+  S.chg = null; sauver(); vueSport();
+  attente++; dessinerEtat();
+  file = file.then(() => api({ action: 'sport', op: 'changer', jour, moment: m, seance: v === 'Repos' ? '/' : v, portee: c.portee }))
+    .then(() => toast(c.portee === 'tjrs' ? 'Changé pour chaque semaine' : 'Changé pour ce jour'))
+    .catch(err => { toast('Non enregistré : ' + err.message); attente = 0; actualiser(false); })
+    .finally(() => { attente = Math.max(0, attente - 1); dessinerEtat(); if (!attente) actualiserBientot(); });
+}
+function feuilleChg() {
+  const c = S.chg, nj = JOURS_FR[(S.jour + 1) % 7].toLowerCase();
+  return `<div class="feuille" style="border-color:#3a4a3f">
+  <div style="display:flex;justify-content:space-between;align-items:center"><span class="h2">Changer ${c.m === 'Matin' ? 'le matin' : "l'après-midi"} · ${JOURS_FR[(S.jour + 1) % 7]}</span><button class="bt" aria-label="Fermer" onclick="S.chg=null;vueSport()"><i class="ti ti-x"></i></button></div>
+  <div class="lab" style="margin-top:10px">Séances existantes</div>
+  <div>${D.sport.liste.map((x, i) => `<span class="chx ${!c.libre && cleS(c.choix) === cleS(x) ? 'on' : ''}" onclick="choisirChg(${i})">${esc(x)}</span>`).join('')}<span class="chx ${!c.libre && c.choix === 'Repos' ? 'on' : ''}" onclick="choisirChg(-1)">Repos</span></div>
+  <div class="lab" style="margin-top:12px">Ou écris la tienne</div>
+  <input id="chgl" placeholder="Natation 45 min" value="${esc(c.libre)}" oninput="S.chg.libre=this.value;document.querySelectorAll('.chx.on').forEach(x=>x.classList.remove('on'))">
+  <div class="lab">Pour</div>
+  <div style="margin-bottom:12px"><span class="chx ${c.portee === 'jour' ? 'on' : ''}" onclick="S.chg.portee='jour';vueSport()">Ce ${nj} seulement</span><span class="chx ${c.portee === 'tjrs' ? 'on' : ''}" onclick="S.chg.portee='tjrs';vueSport()">Tous les ${nj}s</span></div>
+  <button class="vert" style="background:${VERT};color:#10261a" onclick="validerChg()">Valider</button></div>`;
+}
+
+/* Cartes */
+function teteSeance(nom, m, droite) {
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0"><span class="tgv">${m}</span><div class="sn">${nom ? esc(nom) : 'Repos'}</div></div>
+  <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">${droite || ''}<button class="bt" onclick="ouvrirChg('${m}')"><i class="ti ti-switch-horizontal"></i> Changer</button></div></div>`;
+}
+function carteSeance(m, nom) {
+  const jour = D.sport.jours[S.jour].jour, p = progDe(nom), futur = jour > D.auj;
+  if (!nom) return `<div class="c" style="opacity:.7">${teteSeance('', m)}</div>`;
+  if (p && p.type === 'muscu') {
+    const [f, t] = compte(jour, m, p);
+    return `<div class="c">${teteSeance(p.nom, m, `<span class="lab">${f}/${t}</span>`)}<div style="margin-top:6px">` +
+      p.exos.map((e, i) => `<div class="ex"><div style="min-width:0">${e.ss ? '<span class="tgv">SS </span>' : ''}${esc(e.nom)}<div class="lab">${esc(e.series)} × ${esc(e.rep)} · ${esc(e.hist.length ? e.hist[e.hist.length - 1] : 'à tester')}</div></div>${ronds(jour, m, i, e.n)}</div>`).join('') +
+      `</div><button class="vv" onclick="S.vue='complete';S.m='${m}';vueSport();window.scrollTo(0,0)"><i class="ti ti-list-details"></i> Séance complète</button></div>`;
+  }
+  if (p && p.type === 'course') {
+    const idx = p.exos.map((e, i) => i), coeur = idx.filter(i => !/^x$/i.test(p.exos[i].rir));
+    const avant = idx.filter(i => i < coeur[0]), apres = idx.filter(i => i > coeur[coeur.length - 1]);
+    const pl = l => l.map(i => `<span class="pl">${esc(p.exos[i].nom)} · ${p.exos[i].series !== '1' ? esc(p.exos[i].series) + ' × ' : ''}${esc(p.exos[i].rep)}</span>`).join('');
+    return `<div class="c">${teteSeance(p.nom, m)}
+      ${avant.length ? `<div class="lab" style="margin-top:8px">Échauffement</div><div>${pl(avant)}</div>` : ''}
+      ${coeur.map(i => { const e = p.exos[i]; return `<div class="coeur"><div class="lab" style="color:${VERT}">Cœur de la séance</div><div class="sn">${esc(e.series)} × ${esc(e.nom.toLowerCase())} ${esc(e.rep)}</div><div style="font-size:12px;color:#cfe3d3">${esc(e.rir)}${e.repos ? ' · récup ' + esc(e.repos) : ''}</div><div style="margin-top:8px">${ronds(jour, m, i, e.n)}</div></div>`; }).join('')}
+      ${apres.length ? `<div class="lab" style="margin-top:10px">Retour au calme</div><div>${pl(apres)}</div>` : ''}</div>`;
+  }
+  const g = gesteSport(jour, m), ok = g && g.x.fait;
+  const bouton = futur ? '<span class="lab">À venir</span>' : g ? `<button class="fait ${ok ? 'ok' : ''}" onclick="marquerSport('${jour}','${m}',${!ok});vueSport()">${ok ? '<i class="ti ti-check"></i> Fait' : 'Fait ?'}</button>` : '';
+  return `<div class="c">${teteSeance(nom, m, bouton)}</div>`;
+}
+function vueComplete() {
+  const jour = D.sport.jours[S.jour].jour, m = S.m, p = progDe(D.sport.jours[S.jour][m]);
+  if (!p) { S.vue = 'jour'; return vueSport(); }
+  const [f, t] = compte(jour, m, p);
+  let h = `<div class="titre"><div><h1 style="color:${VERT}">${esc(p.nom)}</h1><div class="lab">${nomJourSport(S.jour)} · ${m}</div></div><span class="lab">${f}/${t} séries</span></div>
+  <button class="bt" style="margin-bottom:10px" onclick="S.vue='jour';vueSport()"><i class="ti ti-arrow-left"></i> Retour</button><div class="etat" id="etat"></div>`;
+  let ouvert = false;
+  p.exos.forEach((e, i) => {
+    if (e.ss === 'debut') { h += `<div class="tgv" style="margin:4px 0 6px"><i class="ti ti-arrows-exchange"></i> Superset · enchaîne les deux</div><div class="ssb">`; ouvert = true; }
+    const tuile = (l, v) => `<div class="mt2"><span class="lab">${l}</span><div>${esc(v)}</div></div>`;
+    h += `<div class="c"><div style="display:flex;justify-content:space-between"><span class="h2">${esc(e.nom)}</span><span class="lab">${i + 1}/${p.exos.length}</span></div>
+      <div class="g2" style="margin:8px 0 0;gap:6px">${tuile('Séries', e.series)}${tuile('Répétitions', e.rep)}${tuile('RIR', e.rir)}${tuile('Repos', e.repos || 'enchaîné')}</div>
+      <div class="lab" style="margin-top:8px">Historique des charges</div>
+      <div>${e.hist.length ? e.hist.map((c, k) => `<span class="pl ${k === e.hist.length - 1 ? 'der' : ''}">${esc(c)}</span>`).join('<i class="ti ti-arrow-right" style="font-size:12px;color:#6b7280"></i>') : '<span class="pl">À tester</span>'}</div>
+      <div style="margin-top:10px">${ronds(jour, m, i, e.n)}</div></div>`;
+    if (e.ss === 'fin' && ouvert) { h += '</div>'; ouvert = false; }
+  });
+  if (ouvert) h += '</div>';
+  $('vue').innerHTML = h + '<div style="height:70px"></div>';
+  dessinerEtat(); tickMinu();
+}
+function vueSport() {
+  const sp = D.sport;
+  if (!sp || sp.erreur || !sp.jours) { $('vue').innerHTML = `<div class="titre"><h1 style="color:${VERT}">Sport</h1></div><div class="c vide">Impossible de lire le tableau Sport${sp && sp.erreur ? ' : ' + esc(sp.erreur) : ''}.</div><div class="etat" id="etat"></div>`; return dessinerEtat(); }
+  if (S.jour === null || !sp.jours[S.jour]) S.jour = Math.max(0, sp.jours.findIndex(j => j.jour === D.auj));
+  if (S.vue === 'complete') return vueComplete();
+  const lettres = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  let h = `<div class="titre"><h1 style="color:${VERT}">Sport</h1><span class="lab">${nomJourSport(S.jour)}</span></div>
+  <div class="wkm">${sp.jours.map((j, i) => `<button class="${i === S.jour ? 'sel sp' : ''}" onclick="S.jour=${i};S.chg=null;vueSport()">${lettres[i]}<b>${Number(j.jour.slice(8))}</b>${j.jour === D.auj ? 'auj.' : '&nbsp;'}</button>`).join('')}</div>
+  <div class="etat" id="etat"></div>`;
+  seancesDu(S.jour).forEach(([m, nom]) => {
+    h += carteSeance(m, nom);
+    if (S.chg && S.chg.m === m) h += feuilleChg();
+  });
+  $('vue').innerHTML = h + '<div style="height:70px"></div>';
+  dessinerEtat(); tickMinu();
+}
+function carteSport() {
+  const sp = D.sport;
+  if (!sp || sp.erreur || !sp.jours) return `<div class="c" style="margin:0"><div class="lab"><i class="ti ti-barbell"></i> Sport</div><div class="lab" style="margin-top:6px">Indisponible</div></div>`;
+  const j = sp.jours.find(x => x.jour === D.auj) || {};
+  const l = [['Matin', j['Matin']], ['Après-midi', j['Après-midi']]].filter(x => x[1]);
+  return `<div class="c carte" style="margin:0" onclick="S.jour=null;S.vue='jour';aller('sport')"><div class="lab"><i class="ti ti-barbell"></i> Sport</div>
+    ${l.length ? l.map(([m, n]) => { const g = gesteSport(D.auj, m), ok = g && g.x.fait; return `<div class="h2" style="color:${ok ? '#6b7280' : VERT};margin-top:4px">${esc(n)}${ok ? ' <i class="ti ti-check"></i>' : ''}</div><div class="lab">${m}</div>`; }).join('') : `<div class="h2" style="color:${VERT};margin-top:4px">Repos</div>`}</div>`;
 }
 
 /* ---------- Onglets à venir ---------- */
