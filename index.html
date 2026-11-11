@@ -166,14 +166,15 @@ function actualiser(frais) {
   api({ action: 'tout', frais: frais ? '1' : '0' }).then(d => {
     if (attente > 0) return; // une coche est en cours d'envoi : on garde l'affichage local
     if (!jourVu || !d.jours.some(j => j.jour === jourVu && !j.futur)) jourVu = d.auj;
-    D = d; sauver(); afficher();
+    D = d; if (B.vu && D.autres && D.autres[B.vu.onglet]) B.vu = D.autres[B.vu.onglet]; sauver(); afficher();
   }).catch(e => toast('Connexion impossible : ' + e.message))
     .finally(() => { sync = false; dessinerEtat(); });
 }
 function actualiserBientot() { clearTimeout(minuterie); minuterie = setTimeout(() => actualiser(false), 3000); }
 function dessinerEtat() {
   const el = $('etat'); if (!el) return;
-  el.innerHTML = sync ? '<span class="tourne"><i class="ti ti-refresh"></i></span> Mise à jour…'
+  el.innerHTML = attente > 0 ? '<span class="tourne"><i class="ti ti-refresh"></i></span> Enregistrement…'
+    : sync ? '<span class="tourne"><i class="ti ti-refresh"></i></span> Mise à jour…'
     : `Mis à jour à ${esc(D && D.maj)} <button aria-label="Actualiser" onclick="actualiser(true)"><i class="ti ti-refresh"></i></button>`;
 }
 
@@ -291,42 +292,56 @@ function arrondi(v) { return v > 0 ? Math.round((Math.ceil(v) - v) * 100) / 100 
 function bitPlus(b, d) { if (b.bitstack != null) b.bitstack = Math.round((b.bitstack + d) * 100) / 100; }
 function nombre(s) { const n = parseFloat(String(s || '').replace(/\s/g, '').replace(',', '.')); return isNaN(n) ? null : Math.round(n * 100) / 100; }
 function bv() { return B.vu || D.budget; }
+/** Recalcul local immédiat (le tableau confirme ensuite). delta = variation du solde à la date jourOp. */
+function rond(v) { return Math.round(v * 100) / 100; }
+function ajusterEpargne(b, delta, jourOp) {
+  const e = b.epargne; if (!e || e.fait || e.montant == null || !delta) return;
+  if (jourOp && e.jour && jourOp > e.jour) return;          // après la paye : sans effet sur l'épargne
+  const avant = e.montant; e.montant = Math.max(0, rond(e.montant + 0.25 * delta));
+  if (b.prevision != null) b.prevision = rond(b.prevision - (e.montant - avant) - (arrondi(e.montant) - arrondi(avant)));
+}
+function ajusterSolde(b, d) { if (b.solde != null) b.solde = rond(b.solde + d); }
 
 /** Envoie une écriture ; la réponse (onglet relu dans le tableau) remplace l'affichage. */
 function envoyerBudget(params) {
   const b = bv();
-  attente++;
+  attente++; dessinerEtat();
   file = file.then(() => api(Object.assign({ action: 'budget', onglet: b.onglet }, params)))
     .then(r => {
       if (attente > 1 || !r.budget) return;
-      if (r.budget.onglet === (D.budget && D.budget.onglet)) { D.budget = r.budget; B.vu = null; } else B.vu = r.budget;
+      if (r.budget.onglet === (D.budget && D.budget.onglet)) { D.budget = r.budget; B.vu = null; }
+      else { B.vu = r.budget; D.autres = D.autres || {}; D.autres[r.budget.onglet] = r.budget; }
       sauver(); if (onglet === 'budget' || onglet === 'accueil') afficher();
     })
     .catch(err => { toast('Non enregistré : ' + err.message); attente = 0; B.vu = null; actualiser(false); })
-    .finally(() => { attente = Math.max(0, attente - 1); });
+    .finally(() => { attente = Math.max(0, attente - 1); dessinerEtat(); });
 }
 function changerMois(nom) {
   B.edit = null; B.form = false;
   if (nom === D.budget.onglet) { B.vu = null; return vueBudget(); }
+  const deja = D.autres && D.autres[nom];
+  if (deja) { B.vu = deja; vueBudget(); window.scrollTo(0, 0); return; }   // déjà chargé : instantané
   B.charge = true; vueBudget();
   api({ action: 'budget', op: 'lire', onglet: nom })
-    .then(r => { B.vu = r.budget; }).catch(e => toast('Connexion impossible : ' + e.message))
+    .then(r => { B.vu = r.budget; D.autres = D.autres || {}; D.autres[nom] = r.budget; sauver(); })
+    .catch(e => toast('Connexion impossible : ' + e.message))
     .finally(() => { B.charge = false; if (onglet === 'budget') vueBudget(); });
 }
 function cocherBudget(type, i) {
   const b = bv();
   if (type === 'rec') {
     const x = b.recurrents[i]; x.fait = !x.fait;
-    const s = x.fait ? 1 : -1; if (b.solde != null) b.solde -= s * x.montant; bitPlus(b, s * arrondi(x.montant));
+    const s = x.fait ? 1 : -1; ajusterSolde(b, -s * x.montant); bitPlus(b, s * arrondi(x.montant));
+    ajusterEpargne(b, -s * x.montant, x.jour);
     envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.fait ? '1' : '0' });
   } else if (type === 'rev') {
     const x = b.revenus[i]; if (!x.cochable) return; x.recu = !x.recu;
-    if (b.solde != null && x.montant != null) b.solde += (x.recu ? 1 : -1) * x.montant;
+    if (x.montant != null) { const d = (x.recu ? 1 : -1) * x.montant; ajusterSolde(b, d); ajusterEpargne(b, d, x.jour); }
     envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.recu ? '1' : '0' });
   } else if (type === 'ep') {
     const x = b.epargne; if (x.montant == null) return toast("L'épargne sera calculée une fois le salaire saisi");
     x.fait = !x.fait;
-    const s = x.fait ? 1 : -1; if (b.solde != null) b.solde -= s * x.montant; bitPlus(b, s * arrondi(x.montant));
+    const s = x.fait ? 1 : -1; ajusterSolde(b, -s * x.montant); bitPlus(b, s * arrondi(x.montant));
     envoyerBudget({ op: 'cocher', r: x.r, lib: x.lib, v: x.fait ? '1' : '0' });
   }
   if (navigator.vibrate) navigator.vibrate(10);
@@ -336,7 +351,12 @@ function ouvrirEdition(t, i) { B.edit = B.edit && B.edit.t === t && B.edit.i ===
 function enregistrerMontantRevenu(i) {
   const b = bv(), x = b.revenus[i], m = nombre($('em').value);
   if (m == null || m < 0) return toast('Entre un montant valide');
-  x.montant = m; B.edit = null; vueBudget();
+  const d = m - (x.montant || 0); x.montant = m; B.edit = null;
+  if (x.recu) ajusterSolde(b, d);
+  if (b.prevision != null) b.prevision = rond(b.prevision + d);
+  if (x.recu || !x.cochable) ajusterEpargne(b, d, x.jour);   // salaire : compté le jour de paye ; CAF : si reçue
+  if (b.salaire && !x.cochable && b.salaire.jour === x.jour) b.salaire.montant = m;
+  vueBudget();
   envoyerBudget({ op: 'montant', r: x.r, lib: x.lib, m: String(m) });
 }
 function enregistrerMouvement(i) {
@@ -345,13 +365,24 @@ function enregistrerMouvement(i) {
   if (!l) return toast('Entre un libellé');
   const signeM = $('es').dataset.sens === 'entree' ? -m : m;
   const ancienLib = x.lib, ancienM = x.montant;
-  x.lib = l; x.montant = signeM; B.edit = null; vueBudget();
+  const d = signeM - ancienM;
+  x.lib = l; x.montant = signeM; B.edit = null;
+  ajusterSolde(b, -d); bitPlus(b, arrondi(signeM) - arrondi(ancienM));
+  if (b.prevision != null) b.prevision = rond(b.prevision - d - (arrondi(signeM) - arrondi(ancienM)));
+  if (signeM > 0 || ancienM > 0) { const dt = Math.max(signeM, 0) - Math.max(ancienM, 0); b.totMois = rond(b.totMois + dt); if (x.jour === D.auj) b.totJour = rond(b.totJour + dt); }
+  ajusterEpargne(b, -d, x.jour);
+  vueBudget();
   envoyerBudget({ op: 'modifier', r: x.r, ancienLib, ancienM: String(ancienM), lib: l, m: String(signeM) });
 }
 function supprimerMouvement(i) {
   const b = bv(), x = b.mouvements[i];
   if (!confirmer('Supprimer « ' + x.lib + ' » ?')) return;
-  b.mouvements.splice(i, 1); B.edit = null; vueBudget();
+  b.mouvements.splice(i, 1); B.edit = null;
+  ajusterSolde(b, x.montant); bitPlus(b, -arrondi(x.montant));
+  if (b.prevision != null) b.prevision = rond(b.prevision + x.montant + arrondi(x.montant));
+  if (x.montant > 0) { b.totMois = rond(b.totMois - x.montant); if (x.jour === D.auj) b.totJour = rond(b.totJour - x.montant); }
+  ajusterEpargne(b, x.montant, x.jour);
+  vueBudget();
   envoyerBudget({ op: 'supprimer', r: x.r, ancienLib: x.lib, ancienM: String(x.montant) });
 }
 function confirmer(msg) { return window.confirm(msg); }
@@ -366,8 +397,9 @@ function ajouterMouvement() {
   if (!l) return toast('Entre un libellé');
   const b = bv(), v = ent ? -m : m, a = arrondi(v);
   b.mouvements.unshift({ r: 0, jour: D.auj, date: '', lib: l, montant: v });
-  if (b.solde != null) b.solde -= v; bitPlus(b, a); if (b.prevision != null) b.prevision -= v + a;
-  if (v > 0) { b.totJour += v; b.totMois += v; }
+  ajusterSolde(b, -v); bitPlus(b, a); if (b.prevision != null) b.prevision = rond(b.prevision - v - a);
+  if (v > 0) { b.totJour = rond(b.totJour + v); b.totMois = rond(b.totMois + v); }
+  ajusterEpargne(b, -v, D.auj);
   B.form = false; vueBudget();
   envoyerBudget({ op: 'depense', lib: l, m: String(v) });
 }
@@ -379,7 +411,10 @@ function vueBudget() {
     <div class="mois"><button ${prec ? `onclick="changerMois('${esc(prec.nom)}')"` : 'disabled'} aria-label="Mois précédent"><i class="ti ti-chevron-left"></i></button>
     <span>${esc(pos >= 0 ? lst[pos].label : (b && b.mois) || '')}</span>
     <button ${suiv ? `onclick="changerMois('${esc(suiv.nom)}')"` : 'disabled'} aria-label="Mois suivant"><i class="ti ti-chevron-right"></i></button></div></div>`;
-  if (B.charge) { $('vue').innerHTML = titre + '<div class="charge">Chargement…</div>'; return; }
+  const ajd = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const etatMois = !b || !b.revenus ? '' : b.courant ? ' · jour ' + b.jourMois + '/' + b.nbJours : b.jourMois === 0 ? ' · commence dans ' + b.dansJours + ' j' : ' · mois terminé';
+  const sousTitre = `<div class="lab" style="padding:0 4px 2px">${ajd.charAt(0).toUpperCase() + ajd.slice(1)}${etatMois}</div>`;
+  if (B.charge) { $('vue').innerHTML = titre + sousTitre + '<div class="charge">Chargement…</div>'; return; }
   if (!b || b.erreur || !b.revenus) { $('vue').innerHTML = titre + `<div class="c vide">Impossible de lire cet onglet${b && b.erreur ? ' : ' + esc(b.erreur) : ''}.</div><div class="etat" id="etat"></div>`; return dessinerEtat(); }
   const flash = B.bitAvant !== null && B.bitAvant !== b.bitstack; B.bitAvant = b.bitstack;
   const fait = b.recurrents.filter(x => x.fait).length;
@@ -389,7 +424,7 @@ function vueBudget() {
   const jours = []; b.mouvements.forEach((x, i) => { let j = jours.find(y => y.jour === x.jour); if (!j) jours.push(j = { jour: x.jour, date: x.date, l: [] }); j.l.push([x, i]); });
   const visibles = B.tout ? jours : jours.slice(0, 3);
   const pasCommence = b.solde == null;
-  let h = titre + `<div class="bar" style="margin:4px 4px 12px"><div style="width:${b.jourMois / b.nbJours * 100}%;background:#4ade80"></div></div>
+  let h = titre + sousTitre + `<div class="bar" style="margin:6px 4px 12px"><div style="width:${b.jourMois / b.nbJours * 100}%;background:#4ade80"></div></div>
   <div class="c" style="text-align:center;padding:16px">${pasCommence
     ? `<div class="lab">Solde</div><div style="color:#9ca3af;font-size:20px;font-weight:600;margin:6px 0">Le mois n'a pas commencé</div><div class="lab">Les montants s'afficheront le 1er</div>`
     : `<div class="lab">Solde actuel</div><div style="color:${b.solde < 0 ? '#f87171' : '#4ade80'};font-size:34px;font-weight:600;margin:2px 0">${eur(b.solde)}</div><div class="lab">Fin de mois prévue <span style="color:#a5b4fc;font-weight:600">${eur(b.prevision)}</span></div>`}</div>
