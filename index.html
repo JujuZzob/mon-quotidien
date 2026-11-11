@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1015">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mon quotidien">
+<title>Mon quotidien</title>
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:#0f1015}
+body{margin:0;background:#0f1015;color:#e6e6ea;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,sans-serif;font-size:14px;
+  padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 84px);min-height:100vh}
+.c{background:#16171d;border-radius:16px;padding:12px;margin-bottom:10px}
+.c.fin{opacity:.5}
+.lab{color:#9ca3af;font-size:12px}
+.titre{display:flex;justify-content:space-between;align-items:center;padding:2px 4px 12px}
+.titre h1{margin:0;font-size:24px;font-weight:600}
+.grp{color:#5eead4;font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.bar{height:5px;background:#262832;border-radius:3px;margin:6px 0 10px}
+.bar div{height:5px;background:#2dd4bf;border-radius:3px;transition:width .25s}
+.tl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.t{background:#1d1f27;border:1px solid #262832;border-radius:14px;padding:10px 8px 6px;transition:background .15s,border-color .15s}
+.t.large{grid-column:1/-1}
+.t.half{border-color:#1f6f66}
+.t.done{background:#0d3531;border-color:#14564f}
+.t.rest{border-style:dashed;background:transparent}
+.tn{font-weight:600;font-size:14px;margin:0 4px 6px;display:flex;justify-content:space-between;align-items:center}
+.t.done .tn{color:#5eead4}
+.t.rest .tn{color:#6b7280}
+.k{font-size:12px;color:#6b7280;font-weight:400}
+.g{display:flex;align-items:center;gap:9px;min-height:42px;padding:4px 6px;border-radius:10px;cursor:pointer;font-size:13px;line-height:1.3;color:#e6e6ea;user-select:none;-webkit-user-select:none}
+.g:active{background:#262832}
+.d{width:24px;height:24px;border-radius:50%;border:2px solid #4b5563;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#0f1015;font-size:14px;transition:all .15s}
+.g.ok .d{background:#2dd4bf;border-color:#2dd4bf}
+.g.ok{color:#99f6e4}
+.t.done .g.ok{color:#8fc9c1}
+.g.attente{cursor:default;color:#6b7280}
+.g.attente .d{border-style:dashed;border-color:#374151}
+.mo{font-size:11px;color:#6b7280;display:block}
+.g.ok .mo{color:#3f9e93}
+.wait{font-size:11px;color:#fbbf24;display:block}
+.wk{display:flex;gap:2px}
+.wk button{flex:1;background:none;border:none;color:#9ca3af;font-size:12px;padding:0;cursor:pointer;font-family:inherit}
+.wk button.sel{color:#2dd4bf;font-weight:600}
+.wk button:disabled{cursor:default;opacity:.45}
+nav{position:fixed;left:0;right:0;bottom:0;background:#0f1015;border-top:1px solid #262832;display:flex;justify-content:space-around;padding:8px 6px calc(env(safe-area-inset-bottom) + 6px);z-index:5}
+nav button{background:none;border:none;color:#6b7280;font-size:11px;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;cursor:pointer}
+nav i{font-size:23px}
+.carte{cursor:pointer}
+.big{font-size:26px;font-weight:600}
+.vide{text-align:center;padding:40px 10px;color:#6b7280}
+.charge{text-align:center;padding:80px 0;color:#6b7280}
+.etat{display:flex;justify-content:center;align-items:center;gap:6px;color:#6b7280;font-size:11px;margin:4px 0 8px}
+.etat button{background:none;border:none;color:#6b7280;font-size:15px;padding:2px 4px}
+.tourne{animation:t 1s linear infinite;display:inline-block}
+@keyframes t{to{transform:rotate(360deg)}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 90px);background:#3b1414;color:#fca5a5;padding:9px 14px;border-radius:10px;font-size:13px;display:none;z-index:9;max-width:90%}
+input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;color:#e6e6ea;font-size:15px;padding:11px;margin:6px 0 12px}
+.btn{width:100%;background:#2dd4bf;color:#0f1015;border:none;border-radius:12px;font-size:15px;font-weight:600;padding:12px}
+</style>
+</head>
+<body>
+<main id="vue"><div class="charge">Chargement…</div></main>
+<div class="toast" id="toast"></div>
+<nav id="nav"></nav>
+
+<script>
+/* ---------- Réglages : lus dans l'adresse (#api=…&k=…) ou mémorisés ---------- */
+const P = new URLSearchParams(location.hash.slice(1));
+if (P.get('api') && P.get('k')) { localStorage.setItem('mq_api', P.get('api')); localStorage.setItem('mq_k', P.get('k')); }
+let API = localStorage.getItem('mq_api'), CLE = localStorage.getItem('mq_k');
+
+const ONGLETS = [
+  ['accueil', 'ti-home', 'Accueil', '#7dd3fc'],
+  ['budget', 'ti-wallet', 'Budget', '#4ade80'],
+  ['routine', 'ti-checklist', 'Routine', '#2dd4bf'],
+  ['menu', 'ti-tools-kitchen-2', 'Menu', '#fbbf24'],
+  ['sport', 'ti-barbell', 'Sport', '#a78bfa']
+];
+let onglet = localStorage.getItem('mq_onglet') || 'accueil';
+let D = null, jourVu = null, sync = false, file = Promise.resolve(), attente = 0, minuterie = null;
+try { D = JSON.parse(localStorage.getItem('mq_data')); } catch (e) {}
+
+/* ---------- Outils ---------- */
+const $ = id => document.getElementById(id);
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function toast(m) { const t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 4000); }
+function anneau(f, t, sz, txt) {
+  const r = sz * .4, C = 2 * Math.PI * r, w = sz * .12;
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" aria-hidden="true"><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="#262832" stroke-width="${w}"/>` +
+    (t ? `<circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="#2dd4bf" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - f / t)}" transform="rotate(-90 ${sz/2} ${sz/2})"/>` : '') +
+    (txt ? `<text x="${sz/2}" y="${sz/2 + 5}" text-anchor="middle" fill="#e6e6ea" font-size="14" font-weight="600">${txt}</text>` : '') + '</svg>';
+}
+function api(params) {
+  const q = new URLSearchParams(Object.assign({ k: CLE }, params));
+  return fetch(API + '?' + q.toString(), { redirect: 'follow' }).then(r => r.json()).then(j => {
+    if (!j.ok) throw new Error(j.erreur || 'Erreur');
+    return j;
+  });
+}
+function sauver() { try { localStorage.setItem('mq_data', JSON.stringify(D)); } catch (e) {} }
+function jourActuel() { return D.jours.find(j => j.jour === jourVu) || D.jours.find(j => j.jour === D.auj); }
+
+/* ---------- Synchronisation ---------- */
+function actualiser(frais) {
+  if (!API || !CLE) return;
+  sync = true; dessinerEtat();
+  api({ action: 'tout', frais: frais ? '1' : '0' }).then(d => {
+    if (attente > 0) return; // une coche est en cours d'envoi : on garde l'affichage local
+    if (!jourVu || !d.jours.some(j => j.jour === jourVu && !j.futur)) jourVu = d.auj;
+    D = d; sauver(); afficher();
+  }).catch(e => toast('Connexion impossible : ' + e.message))
+    .finally(() => { sync = false; dessinerEtat(); });
+}
+function actualiserBientot() { clearTimeout(minuterie); minuterie = setTimeout(() => actualiser(false), 3000); }
+function dessinerEtat() {
+  const el = $('etat'); if (!el) return;
+  el.innerHTML = sync ? '<span class="tourne"><i class="ti ti-refresh"></i></span> Mise à jour…'
+    : `Mis à jour à ${esc(D && D.maj)} <button aria-label="Actualiser" onclick="actualiser(true)"><i class="ti ti-refresh"></i></button>`;
+}
+
+/* ---------- Navigation ---------- */
+function aller(o) { onglet = o; localStorage.setItem('mq_onglet', o); dessinerNav(); afficher(); window.scrollTo(0, 0); }
+function dessinerNav() {
+  $('nav').innerHTML = ONGLETS.map(x =>
+    `<button onclick="aller('${x[0]}')" style="color:${onglet === x[0] ? x[3] : '#6b7280'}"><i class="ti ${x[1]}" aria-hidden="true"></i>${x[2]}</button>`).join('');
+}
+function afficher() {
+  if (!API || !CLE) return vueReglages();
+  if (!D) { $('vue').innerHTML = '<div class="charge">Chargement…</div>'; return; }
+  if (!jourVu) jourVu = D.auj;
+  if (onglet === 'accueil') vueAccueil();
+  else if (onglet === 'routine') vueRoutine();
+  else vueBientot();
+  dessinerEtat();
+}
+
+/* ---------- Réglages (première ouverture) ---------- */
+function vueReglages() {
+  $('nav').style.display = 'none';
+  $('vue').innerHTML = `<div class="titre"><h1 style="color:#7dd3fc">Bienvenue</h1></div>
+  <div class="c"><div class="lab">Adresse du script (se termine par /exec)</div><input id="iapi" placeholder="https://script.google.com/macros/s/…/exec" autocapitalize="off" autocorrect="off">
+  <div class="lab">Code secret</div><input id="ik" autocapitalize="off" autocorrect="off">
+  <button class="btn" onclick="enregistrer()">Valider</button></div>`;
+}
+function enregistrer() {
+  const a = $('iapi').value.trim(), k = $('ik').value.trim();
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(a)) return toast("L'adresse doit commencer par https://script.google.com et finir par /exec");
+  if (!k) return toast('Entre le code secret');
+  localStorage.setItem('mq_api', a); localStorage.setItem('mq_k', k); API = a; CLE = k;
+  $('nav').style.display = ''; afficher(); actualiser(true);
+}
+
+/* ---------- Accueil ---------- */
+function vueAccueil() {
+  const auj = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const b = D.budget, j = D.jours.find(x => x.jour === D.auj), e = j && j.etat;
+  let h = `<div class="titre"><h1 style="color:#7dd3fc">Bonjour</h1><span class="lab">${auj}</span></div><div class="etat" id="etat"></div>`;
+  if (b) h += `<div class="c carte" onclick="aller('budget')"><div class="lab"><i class="ti ti-wallet"></i> Budget</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="big" style="color:#4ade80">${esc(b.solde)}</span><span style="color:#f472b6">Bitstack ${esc(b.bitstack)}</span></div>
+    <div class="lab">Fin de mois prévue ${esc(b.prevision)}</div></div>`;
+  if (e) {
+    const rest = [];
+    e.groupes.forEach(g => g.habitudes.forEach(x => { if (!x.repos && !x.complet) rest.push(x.nom); }));
+    h += `<div class="c carte" onclick="jourVu=D.auj;aller('routine')" style="display:flex;align-items:center;gap:14px">${anneau(e.faits, e.total, 58, (e.total ? Math.round(e.faits / e.total * 100) : 0) + '%')}
+    <div style="flex:1;min-width:0"><div style="font-weight:600;color:#2dd4bf">Routine du jour · ${e.faits} / ${e.total}</div>
+    <div class="lab">${rest.length ? 'À faire : ' + esc(rest.slice(0, 4).join(', ')) + (rest.length > 4 ? '…' : '') : 'Tout est fait'}</div></div></div>`;
+  }
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="c" style="margin:0"><div class="lab"><i class="ti ti-barbell"></i> Sport</div><div class="lab" style="margin-top:6px">Bientôt</div></div>
+    <div class="c" style="margin:0"><div class="lab"><i class="ti ti-tools-kitchen-2"></i> Menu</div><div class="lab" style="margin-top:6px">Bientôt</div></div></div>`;
+  $('vue').innerHTML = h;
+}
+
+/* ---------- Routine ---------- */
+function recalculer(e) {
+  e.total = 0; e.faits = 0;
+  e.groupes.forEach(g => {
+    g.total = 0; g.faits = 0;
+    g.habitudes.forEach(h => {
+      const req = h.gestes.filter(x => x.requis);
+      h.repos = !req.length; h.complet = !h.repos && req.every(x => x.fait);
+      if (!h.repos) { g.total++; e.total++; if (h.complet) { g.faits++; e.faits++; } }
+    });
+  });
+}
+function cocher(gi, hi, xi) {
+  const j = jourActuel(), x = j.etat.groupes[gi].habitudes[hi].gestes[xi];
+  if (!x.requis && !x.fait) return;
+  x.fait = !x.fait; j.vide = false;
+  recalculer(j.etat); sauver(); vueRoutine();
+  if (navigator.vibrate) navigator.vibrate(10);
+  attente++;
+  const jour = j.jour, cle = x.cle, v = x.fait;
+  file = file.then(() => api({ action: 'geste', jour, cle, v: v ? '1' : '0' }))
+    .catch(err => { toast("La coche n'a pas été enregistrée : " + err.message); attente = 0; actualiser(false); })
+    .finally(() => { attente = Math.max(0, attente - 1); if (!attente) actualiserBientot(); });
+}
+function choisirJour(j) { jourVu = j; vueRoutine(); }
+function vueRoutine() {
+  const J = jourActuel(), e = J.etat, pc = e.total ? Math.round(e.faits / e.total * 100) : 0;
+  const lettres = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  const pleins = D.jours.filter(j => !j.futur && !j.vide && j.etat.total);
+  const moyenne = pleins.length ? Math.round(pleins.reduce((a, j) => a + j.etat.faits / j.etat.total, 0) / pleins.length * 100) : 0;
+  let h = `<div class="titre"><div><h1 style="color:#2dd4bf">Routine</h1><div class="lab">${J.jour === D.auj ? "Aujourd'hui · " : ''}${esc(J.libelle)}</div></div>${anneau(e.faits, e.total, 60, pc + '%')}</div>
+  <div class="c"><div class="wk">${D.jours.map((j, i) => `<button ${j.futur ? 'disabled' : ''} class="${j.jour === J.jour ? 'sel' : ''}" onclick="choisirJour('${j.jour}')">${anneau(j.etat ? j.etat.faits : 0, j.futur || j.vide ? 0 : j.etat.total, 36)}<div>${lettres[i]}</div></button>`).join('')}</div>
+  <div class="lab" style="text-align:center;margin-top:6px">${e.faits} / ${e.total} · moyenne de la semaine ${moyenne} %${D.meilleure ? ' · série ' + esc(D.meilleure.nom) + ' ' + D.meilleure.n + ' j' : ''}</div></div>
+  <div class="etat" id="etat"></div>`;
+  h += e.groupes.map((g, gi) => {
+    const fin = g.total && g.faits === g.total;
+    return `<div class="c ${fin ? 'fin' : ''}"><div class="grp"><span>${esc(g.nom)}${fin ? ' <i class="ti ti-circle-check"></i>' : ''}</span><span class="lab">${g.faits} / ${g.total}</span></div>
+    <div class="bar"><div style="width:${g.total ? g.faits / g.total * 100 : 0}%"></div></div><div class="tl">` +
+    g.habitudes.map((x, hi) => {
+      const req = x.gestes.filter(y => y.requis), k = req.filter(y => y.fait).length;
+      const large = (hi === g.habitudes.length - 1 && g.habitudes.length % 2 === 1) || x.gestes.some(y => y.texte.length > 30);
+      const cls = x.repos ? 'rest' : x.complet ? 'done' : k ? 'half' : '';
+      return `<div class="t ${cls} ${large ? 'large' : ''}"><div class="tn"><span>${esc(x.nom)}</span>${req.length > 1 && !x.complet ? `<span class="k">${k}/${req.length}</span>` : x.complet ? '<i class="ti ti-circle-check" style="color:#2dd4bf;font-size:17px"></i>' : ''}</div>` +
+        x.gestes.map((y, xi) => !y.requis && !y.fait
+          ? `<div class="g attente"><span class="d"></span><span>${esc(y.texte)}<span class="wait">${esc(y.attente)}</span></span></div>`
+          : `<div class="g ${y.fait ? 'ok' : ''}" role="checkbox" aria-checked="${y.fait}" onclick="cocher(${gi},${hi},${xi})"><span class="d">${y.fait ? '<i class="ti ti-check"></i>' : ''}</span><span>${y.moment ? `<span class="mo">${esc(y.moment)}</span>` : ''}${esc(y.texte)}</span></div>`).join('') + '</div>';
+    }).join('') + '</div></div>';
+  }).join('');
+  $('vue').innerHTML = h;
+  dessinerEtat();
+}
+
+/* ---------- Onglets à venir ---------- */
+function vueBientot() {
+  const o = ONGLETS.find(x => x[0] === onglet);
+  $('vue').innerHTML = `<div class="titre"><h1 style="color:${o[3]}">${o[2]}</h1></div><div class="c vide"><i class="ti ${o[1]}" style="font-size:38px;color:${o[3]}"></i><p>Cet onglet arrive bientôt.</p></div>`;
+}
+
+/* ---------- Démarrage ---------- */
+dessinerNav(); afficher(); actualiser(false);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !attente) actualiser(false); });
+</script>
+</body>
+</html>
