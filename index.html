@@ -142,6 +142,9 @@ input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;
 .vv{width:100%;margin-top:10px;height:38px;border:none;border-radius:12px;background:#22322a;color:#cfe3d3;font-size:13px;font-family:inherit;cursor:pointer}
 .pl{display:inline-block;background:#262832;border-radius:12px;padding:3px 9px;font-size:12px;color:#b8bec6;margin:4px 4px 0 0}
 .pl.der{background:#2c4235;color:#cfe3d3}
+.pl.auj{background:#8fb996;color:#10261a}
+.bt.pas{height:44px;width:44px;border-radius:10px;font-size:18px;flex-shrink:0}
+.ch-r{text-align:center;font-size:16px}
 .coeur{background:#22322a;border-radius:12px;padding:10px 12px;margin-top:10px}
 .fait{background:none;border:2px solid #3a3f47;color:#9ca3af;border-radius:16px;height:32px;padding:0 12px;font-size:13px;font-family:inherit;cursor:pointer}
 .fait.ok{background:#8fb996;border-color:#8fb996;color:#10261a}
@@ -558,7 +561,7 @@ function vueMenu() {
 
 /* ---------- Sport ---------- */
 const VERT = '#8fb996';
-let S = { jour: null, vue: 'jour', m: null, chg: null };
+let S = { jour: null, vue: 'jour', m: null, chg: null, ed: null };
 let SER = {};
 try { SER = JSON.parse(localStorage.getItem('mq_series')) || {}; } catch (e) {}
 (function nettoyer() {
@@ -594,7 +597,7 @@ function serie(jour, m, i, k) {
   const a = SER[id] || (SER[id] = []);
   a[k] = !a[k]; sauverSeries();
   if (navigator.vibrate) navigator.vibrate(10);
-  if (a[k] && e.ss !== 'debut' && e.sec) lancerMinu(e.sec, e.nom);
+  if (a[k] && e.sec) lancerMinu(e.sec, e.nom);
   const cibles = p.type === 'course' ? p.exos.map((x, n) => [x, n]).filter(([x]) => !/^x$/i.test(x.rir)) : p.exos.map((x, n) => [x, n]);
   const fini = cibles.every(([x, n]) => { const s = SER[jour + '|' + m + '|' + n] || []; for (let q = 0; q < x.n; q++) if (!s[q]) return false; return true; });
   if (fini) { marquerSport(jour, m, true); toast('Séance terminée, bravo'); }
@@ -625,6 +628,45 @@ function tickMinu() {
   $('mlib').textContent = !T.tot ? 'Repos · coche une série pour lancer' : r ? 'Repos · ' + T.nom : "C'est reparti";
 }
 setInterval(tickMinu, 500);
+
+/* Charges du jour */
+const FLECHE = '<i class="ti ti-arrow-right" style="font-size:12px;color:#6b7280"></i>';
+function histo(e, estAuj) {
+  const l = e.hist.map((c, k) => `<span class="pl ${k === e.hist.length - 1 && !e.auj ? 'der' : ''}">${esc(c)}</span>`);
+  if (e.auj && estAuj) l.push(`<span class="pl auj">Aujourd'hui · ${esc(e.auj)}</span>`);
+  else if (e.auj) l.push(`<span class="pl der">${esc(e.auj)}</span>`);
+  return l.length ? l.join(FLECHE) : '<span class="pl">À tester</span>';
+}
+function decoupe(t) {
+  const m = String(t || '').match(/^\s*([\d\/\s]+?)\s+([\d.,]+)\s*kg\s*$/i);
+  return m ? { reps: m[1].split('/').map(x => x.trim()), kg: m[2] } : { reps: [], kg: '' };
+}
+function ouvrirCharge(m, i) { S.ed = S.ed === m + '|' + i ? null : m + '|' + i; vueSport(); }
+function editeurCharge(e, m, i) {
+  const d = decoupe(e.auj || e.hist[e.hist.length - 1]);
+  let cases = '';
+  for (let k = 0; k < e.n; k++) cases += `<input class="ch-r" inputmode="numeric" value="${esc(d.reps[k] || '')}">`;
+  return `<div class="edit" style="margin-top:10px"><div class="lab">Répétitions par série</div>
+    <div style="display:grid;grid-template-columns:repeat(${Math.min(e.n, 4)},minmax(0,1fr));gap:6px">${cases}</div>
+    <div class="lab">Charge</div>
+    <div style="display:flex;align-items:center;gap:8px"><button class="bt pas" onclick="pasKg(-2.5)">−</button><input id="ch-kg" inputmode="decimal" value="${esc(d.kg)}" style="flex:1;text-align:center;font-size:16px"><span class="lab">kg</span><button class="bt pas" onclick="pasKg(2.5)">+</button></div>
+    <div id="ch-err" style="color:#fca5a5;font-size:13px;margin-bottom:8px"></div>
+    <button class="vert" style="background:${VERT};color:#10261a" onclick="enregistrerCharge('${m}',${i})">Enregistrer</button></div>`;
+}
+function pasKg(d) { const k = $('ch-kg'); const v = parseFloat(String(k.value).replace(',', '.')) || 0; k.value = String(Math.max(0, Math.round((v + d) * 10) / 10)).replace('.', ','); }
+function enregistrerCharge(m, i) {
+  const reps = [...document.querySelectorAll('.ch-r')].map(x => x.value.trim());
+  const kg = String($('ch-kg').value).trim().replace('.', ',');
+  if (reps.some(x => !/^\d+$/.test(x))) { $('ch-err').textContent = 'Remplis les répétitions de chaque série'; return; }
+  if (!/^\d+(,\d+)?$/.test(kg)) { $('ch-err').textContent = 'Entre une charge (0 si au poids du corps)'; return; }
+  const p = progDe(D.sport.jours[S.jour][m]), e = p.exos[i], val = reps.join('/') + ' ' + kg + 'kg';
+  e.auj = val; S.ed = null; sauver(); vueSport();
+  attente++; dessinerEtat();
+  file = file.then(() => api({ action: 'sport', op: 'charge', r: e.r, nom: e.nom, val }))
+    .then(() => toast('Charges enregistrées'))
+    .catch(err => { toast('Non enregistré : ' + err.message); attente = 0; actualiser(false); })
+    .finally(() => { attente = Math.max(0, attente - 1); dessinerEtat(); });
+}
 
 /* Changer une séance */
 function ouvrirChg(m) { const v = D.sport.jours[S.jour][m]; S.chg = { m, choix: v || 'Repos', libre: '', portee: 'jour' }; vueSport(); }
@@ -666,7 +708,7 @@ function carteSeance(m, nom) {
   if (p && p.type === 'muscu') {
     const [f, t] = compte(jour, m, p);
     return `<div class="c">${teteSeance(p.nom, m, `<span class="lab">${f}/${t}</span>`)}<div style="margin-top:6px">` +
-      p.exos.map((e, i) => `<div class="ex"><div style="min-width:0">${e.ss ? '<span class="tgv">SS </span>' : ''}${esc(e.nom)}<div class="lab">${esc(e.series)} × ${esc(e.rep)} · ${esc(e.hist.length ? e.hist[e.hist.length - 1] : 'à tester')}</div></div>${ronds(jour, m, i, e.n)}</div>`).join('') +
+      p.exos.map((e, i) => `<div class="ex"><div style="min-width:0">${e.ss ? '<span class="tgv">SS </span>' : ''}${esc(e.nom)}<div class="lab">${esc(e.series)} × ${esc(e.rep)} · ${e.auj ? '<span style="color:#8fb996">auj. ' + esc(e.auj) + '</span>' : esc(e.hist.length ? e.hist[e.hist.length - 1] : 'à tester')}</div></div>${ronds(jour, m, i, e.n)}</div>`).join('') +
       `</div><button class="vv" onclick="S.vue='complete';S.m='${m}';vueSport();window.scrollTo(0,0)"><i class="ti ti-list-details"></i> Séance complète</button></div>`;
   }
   if (p && p.type === 'course') {
@@ -695,8 +737,9 @@ function vueComplete() {
     h += `<div class="c"><div style="display:flex;justify-content:space-between"><span class="h2">${esc(e.nom)}</span><span class="lab">${i + 1}/${p.exos.length}</span></div>
       <div class="g2" style="margin:8px 0 0;gap:6px">${tuile('Séries', e.series)}${tuile('Répétitions', e.rep)}${tuile('RIR', e.rir)}${tuile('Repos', e.repos || 'enchaîné')}</div>
       <div class="lab" style="margin-top:8px">Historique des charges</div>
-      <div>${e.hist.length ? e.hist.map((c, k) => `<span class="pl ${k === e.hist.length - 1 ? 'der' : ''}">${esc(c)}</span>`).join('<i class="ti ti-arrow-right" style="font-size:12px;color:#6b7280"></i>') : '<span class="pl">À tester</span>'}</div>
-      <div style="margin-top:10px">${ronds(jour, m, i, e.n)}</div></div>`;
+      <div>${histo(e, jour === D.auj)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px">${ronds(jour, m, i, e.n)}${jour === D.auj ? `<button class="bt" onclick="ouvrirCharge('${m}',${i})"><i class="ti ti-pencil"></i> ${e.auj ? 'Modifier' : 'Noter'}</button>` : ''}</div>
+      ${S.ed === m + '|' + i ? editeurCharge(e, m, i) : ''}</div>`;
     if (e.ss === 'fin' && ouvert) { h += '</div>'; ouvert = false; }
   });
   if (ouvert) h += '</div>';
