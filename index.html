@@ -114,6 +114,23 @@ input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;
 .sens.on{background:#3b1414;color:#fca5a5}
 .sens.on.ent{background:#0f3b36;color:#2dd4bf}
 .ln.mv{cursor:pointer}
+.wkm{display:flex;gap:4px;margin-bottom:10px}
+.wkm button{flex:1;background:#16171d;border:1px solid #262832;border-radius:10px;padding:6px 0;color:#9ca3af;font-size:11px;cursor:pointer;line-height:1.35;font-family:inherit}
+.wkm button.sel{border-color:#fbbf24;color:#fbbf24;font-weight:600;background:#2a2008}
+.wkm b{display:block;font-size:13px;color:inherit}
+.meal{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid #262832}
+.meal:first-of-type{border-top:none}
+.meal .ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:#3a2a05;color:#fbbf24}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.chips span{background:#262832;border-radius:12px;padding:4px 9px;font-size:12px;color:#e6e6ea}
+.libre{border:1px dashed #4a3a0a;border-radius:12px;padding:10px 12px;margin-top:6px;background:#1a1606}
+.rap{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.rap span{background:#3a2a05;color:#fbbf24;border-radius:12px;padding:4px 10px;font-size:12px;font-weight:600}
+.dn{background:#1d1f27;border:1px solid #262832;border-radius:14px;padding:10px}
+.dn.auj{border-color:#fbbf24;background:#2a2008}
+.ln.stock .rd{background:#fbbf24;border-color:#fbbf24}
+.ln.stock .nm{color:#6b7280}
+
 
 </style>
 </head>
@@ -191,6 +208,7 @@ function afficher() {
   if (onglet === 'accueil') vueAccueil();
   else if (onglet === 'routine') vueRoutine();
   else if (onglet === 'budget') vueBudget();
+  else if (onglet === 'menu') vueMenu();
   else vueBientot();
   dessinerEtat();
 }
@@ -228,7 +246,7 @@ function vueAccueil() {
   }
   h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="c" style="margin:0"><div class="lab"><i class="ti ti-barbell"></i> Sport</div><div class="lab" style="margin-top:6px">Bientôt</div></div>
-    <div class="c" style="margin:0"><div class="lab"><i class="ti ti-tools-kitchen-2"></i> Menu</div><div class="lab" style="margin-top:6px">Bientôt</div></div></div>`;
+    ${carteMenu()}</div>`;
   $('vue').innerHTML = h;
 }
 
@@ -460,6 +478,60 @@ function vueBudget() {
   ${jours.length > 3 ? `<button class="pill" onclick="B.tout=!B.tout;vueBudget()">${B.tout ? 'Réduire' : 'Voir tout le mois'} <i class="ti ti-chevron-${B.tout ? 'up' : 'down'}"></i></button>` : ''}${!jours.length ? '<div class="lab" style="margin-top:8px">Aucun mouvement ce mois-ci</div>' : ''}</div>`;
   $('vue').innerHTML = h;
   if (B.edit && B.edit.t === 'mvt') dessinerSens('es');
+  dessinerEtat();
+}
+
+/* ---------- Menu ---------- */
+let M = { jour: null, tout: false };
+const JOURS_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+/** jsem : 0 = lundi … 6 = dimanche. Dîners en rotation du lundi au jeudi ; vendredi soir et week-end libres. */
+function repasDuJour(jsem) {
+  const m = D.menu || {}, d = m.diners || [];
+  return { diner: jsem <= 3 && d.length ? d[jsem % d.length] : null, midiLibre: jsem >= 5, soirLibre: jsem >= 4 };
+}
+function jsemAuj() { return (new Date().getDay() + 6) % 7; }
+function carteMenu() {
+  const m = D.menu;
+  if (!m || m.erreur) return `<div class="c" style="margin:0"><div class="lab"><i class="ti ti-tools-kitchen-2"></i> Menu</div><div class="lab" style="margin-top:6px">Indisponible</div></div>`;
+  const r = repasDuJour(jsemAuj()), manque = m.courses.filter(x => !x.stock).length;
+  return `<div class="c carte" style="margin:0" onclick="M.jour=null;aller('menu')"><div class="lab"><i class="ti ti-tools-kitchen-2"></i> Ce soir</div>
+    <div class="h2" style="color:#fbbf24;margin-top:4px">${r.diner ? esc(r.diner.nom) : 'Soir libre'}</div>
+    <div class="lab">${r.diner ? esc(r.diner.items.join(', ')) : 'Variée · en quantité · équilibrée'}</div>
+    ${manque ? `<div style="display:inline-block;margin-top:6px;background:#3a2a05;color:#fbbf24;border-radius:8px;padding:2px 8px;font-size:12px">${manque} à acheter</div>` : ''}</div>`;
+}
+function cocherCourse(i) {
+  const x = D.menu.courses[i]; x.stock = !x.stock; sauver(); vueMenu();
+  if (navigator.vibrate) navigator.vibrate(10);
+  attente++; dessinerEtat();
+  file = file.then(() => api({ action: 'menu', op: 'cocher', r: x.r, lib: x.lib, v: x.stock ? '1' : '0' }))
+    .catch(err => { toast('Non enregistré : ' + err.message); attente = 0; actualiser(false); })
+    .finally(() => { attente = Math.max(0, attente - 1); dessinerEtat(); });
+}
+function vueMenu() {
+  const m = D.menu;
+  if (!m || m.erreur) { $('vue').innerHTML = `<div class="titre"><h1 style="color:#fbbf24">Menu</h1></div><div class="c vide">Impossible de lire le tableau Menu${m && m.erreur ? ' : ' + esc(m.erreur) : ''}.</div><div class="etat" id="etat"></div>`; return dessinerEtat(); }
+  const auj = jsemAuj(); if (M.jour === null) M.jour = auj;
+  const j = M.jour, r = repasDuJour(j), lettres = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  const rappel = '<div class="rap"><span>Variée</span><span>En quantité</span><span>Équilibrée</span></div>';
+  const pastilles = a => `<div class="chips">${a.map(x => `<span>${esc(x)}</span>`).join('')}</div>`;
+  const libre = t => `<div class="h2">${t}</div><div class="libre"><div class="lab">À garder en tête</div>${rappel}</div>`;
+  const nomJour = JOURS_FR[(j + 1) % 7];
+  const manque = m.courses.map((x, i) => [x, i]).filter(([x]) => !x.stock);
+  const ajd = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  let h = `<div class="titre"><h1 style="color:#fbbf24">Menu</h1><span class="lab">${ajd.charAt(0).toUpperCase() + ajd.slice(1)}</span></div>
+  <div class="wkm">${lettres.map((l, i) => `<button class="${i === j ? 'sel' : ''}" onclick="M.jour=${i};vueMenu()">${l}<b>${i <= 3 && m.diners.length ? 'D' + (i % m.diners.length + 1) : '—'}</b>${i >= 4 ? 'libre' : i === auj ? 'auj.' : '&nbsp;'}</button>`).join('')}</div>
+  <div class="c"><div class="h2" style="color:#fbbf24">${j === auj ? "Aujourd'hui" : nomJour}</div>
+  <div class="meal"><div class="ic"><i class="ti ti-coffee"></i></div><div style="flex:1"><div class="h2">Petit déjeuner</div>${pastilles(m.petitDej)}</div></div>
+  ${r.midiLibre ? `<div class="meal"><div class="ic"><i class="ti ti-sun"></i></div><div style="flex:1">${libre('Midi libre')}</div></div>` : ''}
+  <div class="meal"><div class="ic"><i class="ti ti-moon"></i></div><div style="flex:1">${r.diner ? `<div class="h2">Ce soir · ${esc(r.diner.nom)}</div>${pastilles(r.diner.items)}` : libre('Soir libre')}</div></div></div>
+  <div class="etat" id="etat"></div>
+  <div class="c"><div class="h2" style="color:#fbbf24;margin-bottom:8px">Les ${m.diners.length} dîners <span class="lab" style="font-weight:400">· du lundi au jeudi</span></div>
+  <div class="g2" style="margin:0">${m.diners.map((d, i) => `<div class="dn ${i === j ? 'auj' : ''}"><div class="h2" style="${i === j ? 'color:#fbbf24' : ''}">${esc(d.nom)} <span class="lab" style="font-weight:400">· ${JOURS_FR[(i % 4) + 1].slice(0, 3).toLowerCase()}.</span></div><div class="lab" style="margin-top:4px;color:#cbd5e1">${esc(d.items.join(', '))}</div></div>`).join('')}</div></div>
+  <div class="c"><div style="display:flex;justify-content:space-between;align-items:center"><span class="h2" style="color:#fbbf24">Il manque</span><span style="background:#3a2a05;color:#fbbf24;padding:2px 9px;border-radius:8px;font-size:12px">${manque.length} article${manque.length > 1 ? 's' : ''}</span></div>
+  ${manque.length ? '<div class="lab" style="margin:4px 0 2px">Coche ce que tu as acheté</div>' + manque.map(([x, i]) => `<div class="ln"><span class="nm">${esc(x.lib)}</span><button class="rd" aria-label="Acheté" onclick="cocherCourse(${i})"></button></div>`).join('') : '<div class="lab" style="padding:12px 0;text-align:center">Rien ne manque <i class="ti ti-circle-check" style="color:#4ade80"></i></div>'}
+  <button class="pill" onclick="M.tout=!M.tout;vueMenu()">${M.tout ? 'Masquer' : 'Voir'} la liste complète <i class="ti ti-chevron-${M.tout ? 'up' : 'down'}"></i></button>
+  ${M.tout ? '<div class="lab" style="margin:8px 0 2px">Décoche ce qui est fini pour l’ajouter à « Il manque »</div>' + m.courses.map((x, i) => `<div class="ln ${x.stock ? 'stock' : ''}"><span class="nm">${esc(x.lib)}</span><button class="rd" aria-label="En stock" onclick="cocherCourse(${i})">${x.stock ? '<i class="ti ti-check"></i>' : ''}</button></div>`).join('') : ''}</div>`;
+  $('vue').innerHTML = h;
   dessinerEtat();
 }
 
