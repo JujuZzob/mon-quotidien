@@ -201,7 +201,7 @@ const P = new URLSearchParams(location.hash.slice(1));
 if (P.get('api') && P.get('k')) { localStorage.setItem('mq_api', P.get('api')); localStorage.setItem('mq_k', P.get('k')); }
 let API = localStorage.getItem('mq_api'), CLE = localStorage.getItem('mq_k');
 
-const VERSION = '12/11 20h10';
+const VERSION = '12/11 20h20';
 const ONGLETS = [
   ['accueil', 'ti-home', 'Accueil', '#7dd3fc'],
   ['agenda', 'ti-calendar', 'Agenda', '#f9a8d4'],
@@ -951,18 +951,27 @@ function vueAgenda() {
   A.anim = '';
   dessinerEtat();
 }
-/** Glisser vers la gauche ou la droite (n'importe où sur l'écran Agenda) pour changer de mois. */
-let gX = null, gY = 0;
+/**
+ * Glisser vers la gauche ou la droite :
+ *  - sur le calendrier de l'Agenda → mois suivant / précédent ;
+ *  - partout ailleurs → onglet suivant / précédent (dans l'ordre de la barre du bas).
+ */
+let gX = null, gY = 0, gCal = false;
 document.addEventListener('touchstart', e => {
-  if (onglet !== 'agenda' || e.touches.length !== 1 || e.target.closest('nav,input,.edit')) { gX = null; return; }
+  gX = null;
+  if (e.touches.length !== 1 || !API || !D || e.target.closest('nav,input,textarea,.edit,.feuille')) return;
   gX = e.touches[0].clientX; gY = e.touches[0].clientY;
+  gCal = onglet === 'agenda' && !!e.target.closest('#agcal');
 }, { passive: true });
 document.addEventListener('touchend', e => {
-  if (gX === null || onglet !== 'agenda') return;
+  if (gX === null) return;
   const dx = e.changedTouches[0].clientX - gX, dy = e.changedTouches[0].clientY - gY; gX = null;
-  if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
-  A.anim = dx < 0 ? 'agsuiv' : 'agprec';
-  moisAgenda(dx < 0 ? 1 : -1);
+  if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+  if (gCal) { A.anim = dx < 0 ? 'agsuiv' : 'agprec'; moisAgenda(dx < 0 ? 1 : -1); return; }
+  const i = ONGLETS.findIndex(x => x[0] === onglet), k = i + (dx < 0 ? 1 : -1);
+  if (k < 0 || k >= ONGLETS.length) return;
+  aller(ONGLETS[k][0]);
+  const v = $('vue'); v.classList.remove('agsuiv', 'agprec'); void v.offsetWidth; v.classList.add(dx < 0 ? 'agsuiv' : 'agprec');
 }, { passive: true });
 
 /* ---------- Onglets à venir ---------- */
