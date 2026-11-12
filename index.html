@@ -201,14 +201,14 @@ const P = new URLSearchParams(location.hash.slice(1));
 if (P.get('api') && P.get('k')) { localStorage.setItem('mq_api', P.get('api')); localStorage.setItem('mq_k', P.get('k')); }
 let API = localStorage.getItem('mq_api'), CLE = localStorage.getItem('mq_k');
 
-const VERSION = '12/11 20h05';
+const VERSION = '12/11 20h10';
 const ONGLETS = [
   ['accueil', 'ti-home', 'Accueil', '#7dd3fc'],
+  ['agenda', 'ti-calendar', 'Agenda', '#f9a8d4'],
   ['budget', 'ti-wallet', 'Budget', '#4ade80'],
-  ['routine', 'ti-checklist', 'Routine', '#2dd4bf'],
-  ['menu', 'ti-tools-kitchen-2', 'Menu', '#fbbf24'],
   ['sport', 'ti-barbell', 'Sport', '#8fb996'],
-  ['agenda', 'ti-calendar', 'Agenda', '#f9a8d4']
+  ['menu', 'ti-tools-kitchen-2', 'Menu', '#fbbf24'],
+  ['routine', 'ti-checklist', 'Routine', '#2dd4bf']
 ];
 let onglet = localStorage.getItem('mq_onglet') || 'accueil';
 let D = null, jourVu = null, sync = false, file = Promise.resolve(), attente = 0, minuterie = null;
