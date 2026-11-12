@@ -175,6 +175,9 @@ input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;
 .sens.on.agon{background:#262832;color:#fff}
 .agpot{display:inline-flex;align-items:center;gap:5px;border-radius:14px;padding:8px 12px;margin:0 5px 6px 0;font-size:13px;font-weight:600;cursor:pointer;border:2px solid transparent;color:#fff}
 .agpot.on{border-color:#fff}
+.agsuiv{animation:agS .22s ease-out}.agprec{animation:agP .22s ease-out}
+@keyframes agS{from{transform:translateX(40px);opacity:.3}to{transform:none;opacity:1}}
+@keyframes agP{from{transform:translateX(-40px);opacity:.3}to{transform:none;opacity:1}}
 </style>
 </head>
 <body>
@@ -880,7 +883,7 @@ function vueAgenda() {
   let h = `<div class="titre"><h1 style="color:#f9a8d4">Agenda</h1><div class="mois"><button aria-label="Mois précédent" onclick="moisAgenda(-1)">‹</button><span>${nomMois.charAt(0).toUpperCase() + nomMois.slice(1)}</span><button aria-label="Mois suivant" onclick="moisAgenda(1)">›</button></div></div>
   <div class="etat" id="etat"></div>`;
   if (A.sel && A.mode === 'voir') h += detailJour(A.sel, mvts);
-  h += `<div class="c" style="padding:8px 6px"><div class="aggr lab" style="text-align:center;margin-bottom:4px"><span></span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+  h += `<div class="c ${A.anim || ''}" id="agcal" style="padding:8px 6px;touch-action:pan-y"><div class="aggr lab" style="text-align:center;margin-bottom:4px"><span></span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
   <div class="aggr">${grille}</div>
   <div class="aglg">${Object.keys(TJ).map(k => `<span><i class="agsq" style="background:${TJ[k][0]}"></i>${TJ[k][1]}</span>`).join('')}<span><i class="agsq" style="border:1.5px dashed #4b5563"></i>Inconnu</span></div>
   <div class="aglg" style="border-top:1px solid #262832;padding-top:8px;margin-top:8px"><span><span class="agsg" style="background:#3a3d48"><i class="ti ti-pencil"></i></span> Note</span><span><span class="agsg" style="background:#3a3d48"><i class="ti ti-currency-euro"></i></span> Mouvement</span></div></div>
@@ -888,7 +891,22 @@ function vueAgenda() {
   if (A.mode === 'peindre') h += `<div>${Object.keys(TJ).map(k => `<span class="agpot ${A.pot === k ? 'on' : ''}" style="background:${TJ[k][0]}" onclick="A.pot='${k}';vueAgenda()">${TJ[k][1]}</span>`).join('')}<span class="agpot ${A.pot === 'X' ? 'on' : ''}" style="background:#262832" onclick="A.pot='X';vueAgenda()"><i class="ti ti-eraser"></i> Effacer</span></div>
     <div class="lab" style="margin:8px 4px">${A.pot === 'X' ? 'Touche les jours à effacer' : 'Touche les jours à colorier'}</div>`;
   $('vue').innerHTML = h;
+  A.anim = '';
+  glisserMois($('agcal'));
   dessinerEtat();
+}
+/** Glisser le calendrier vers la gauche ou la droite pour changer de mois. */
+function glisserMois(el) {
+  if (!el) return;
+  let x0 = null, y0 = 0;
+  el.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    A.anim = dx < 0 ? 'agsuiv' : 'agprec';
+    moisAgenda(dx < 0 ? 1 : -1);
+  });
 }
 
 /* ---------- Onglets à venir ---------- */
