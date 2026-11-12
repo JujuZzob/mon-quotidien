@@ -51,7 +51,7 @@ body{margin:0;background:#0f1015;color:#e6e6ea;font-family:-apple-system,BlinkMa
 .wk button.sel{color:#2dd4bf;font-weight:600}
 .wk button:disabled{cursor:default;opacity:.45}
 nav{position:fixed;left:0;right:0;bottom:0;background:#0f1015;border-top:1px solid #262832;display:flex;justify-content:space-around;padding:8px 6px calc(env(safe-area-inset-bottom) + 6px);z-index:5}
-nav button{background:none;border:none;color:#6b7280;font-size:11px;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;cursor:pointer}
+nav button{background:none;border:none;color:#6b7280;font-size:10px;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;cursor:pointer}
 nav i{font-size:23px}
 .carte{cursor:pointer}
 .big{font-size:26px;font-weight:600}
@@ -154,6 +154,27 @@ input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;
 .mt2{background:#1d1f27;border-radius:10px;padding:6px 9px}.mt2 div{font-size:15px;font-weight:600}
 .wkm button.sel.sp{border-color:#8fb996;color:#8fb996;background:#1a261e}
 .minu{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 66px);background:#1d1f27;border:1px solid #2f323d;border-radius:14px;padding:10px 12px;display:none;align-items:center;gap:10px;z-index:4}
+/* Agenda */
+.aggr{display:grid;grid-template-columns:20px repeat(7,minmax(0,1fr));gap:4px}
+.agsem{font-size:11px;color:#6b7280;display:flex;align-items:center;justify-content:center}
+.agj{height:56px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:5px 2px;outline:2px solid transparent;outline-offset:2px;color:#fff;user-select:none;-webkit-user-select:none}
+.agj .n{font-size:15px;font-weight:600;line-height:1.2;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.agj .ic{margin-top:auto;display:flex;gap:3px;justify-content:center}
+.agsg{width:19px;height:19px;border-radius:50%;background:rgba(15,16,21,.45);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;vertical-align:middle}
+.agsg.big{width:26px;height:26px;font-size:15px;background:#262832;flex-shrink:0}
+.agj.hors{opacity:.25;cursor:default}
+.agj.auj{outline-color:#fff}
+.agj.sel{box-shadow:inset 0 0 0 2px #0f1015,inset 0 0 0 4px #fff}
+.agj.vide{background:transparent;border:1.5px dashed #374151;color:#9ca3af}
+.agj.vide .n{text-shadow:none}
+.aglg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:#d1d5db;margin-top:10px;padding:0 4px;align-items:center}
+.agsq{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+.agt{color:#fff;border-radius:10px;padding:3px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.agev{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #262832;margin-top:6px}
+.agev+.agev{margin-top:0}
+.sens.on.agon{background:#262832;color:#fff}
+.agpot{display:inline-flex;align-items:center;gap:5px;border-radius:14px;padding:8px 12px;margin:0 5px 6px 0;font-size:13px;font-weight:600;cursor:pointer;border:2px solid transparent;color:#fff}
+.agpot.on{border-color:#fff}
 </style>
 </head>
 <body>
@@ -173,7 +194,8 @@ const ONGLETS = [
   ['budget', 'ti-wallet', 'Budget', '#4ade80'],
   ['routine', 'ti-checklist', 'Routine', '#2dd4bf'],
   ['menu', 'ti-tools-kitchen-2', 'Menu', '#fbbf24'],
-  ['sport', 'ti-barbell', 'Sport', '#8fb996']
+  ['sport', 'ti-barbell', 'Sport', '#8fb996'],
+  ['agenda', 'ti-calendar', 'Agenda', '#f9a8d4']
 ];
 let onglet = localStorage.getItem('mq_onglet') || 'accueil';
 let D = null, jourVu = null, sync = false, file = Promise.resolve(), attente = 0, minuterie = null;
@@ -219,7 +241,7 @@ function dessinerEtat() {
 }
 
 /* ---------- Navigation ---------- */
-function aller(o) { if (o !== 'sport') { S.vue = 'jour'; S.chg = null; } onglet = o; localStorage.setItem('mq_onglet', o); dessinerNav(); afficher(); window.scrollTo(0, 0); }
+function aller(o) { if (o !== 'sport') { S.vue = 'jour'; S.chg = null; } if (o !== 'agenda' && A.mode === 'peindre') { clearTimeout(A.minu); envoyerTypes(); A.mode = 'voir'; } onglet = o; localStorage.setItem('mq_onglet', o); dessinerNav(); afficher(); window.scrollTo(0, 0); }
 function dessinerNav() {
   $('nav').innerHTML = ONGLETS.map(x =>
     `<button onclick="aller('${x[0]}')" style="color:${onglet === x[0] ? x[3] : '#6b7280'}"><i class="ti ${x[1]}" aria-hidden="true"></i>${x[2]}</button>`).join('');
@@ -233,6 +255,7 @@ function afficher() {
   else if (onglet === 'budget') vueBudget();
   else if (onglet === 'menu') vueMenu();
   else if (onglet === 'sport') vueSport();
+  else if (onglet === 'agenda') vueAgenda();
   else vueBientot();
   dessinerEtat();
 }
@@ -769,6 +792,103 @@ function carteSport() {
   const l = [['Matin', j['Matin']], ['Après-midi', j['Après-midi']]].filter(x => x[1]);
   return `<div class="c carte" style="margin:0" onclick="S.jour=null;S.vue='jour';aller('sport')"><div class="lab"><i class="ti ti-barbell"></i> Sport</div>
     ${l.length ? l.map(([m, n]) => { const g = gesteSport(D.auj, m), ok = g && g.x.fait; return `<div class="h2" style="color:${ok ? '#6b7280' : VERT};margin-top:4px">${esc(n)}${ok ? ' <i class="ti ti-check"></i>' : ''}</div><div class="lab">${m}</div>`; }).join('') : `<div class="h2" style="color:${VERT};margin-top:4px">Repos</div>`}</div>`;
+}
+
+/* ---------- Agenda ---------- */
+const TJ = {
+  ENT: ['#e39a0a', 'Entraînement'], PAI: ['#e8590c', 'PAI'], TERRAIN: ['#d61f2c', 'Terrain'],
+  WE: ['#2f6fb8', 'Week-end'], PERMS: ['#0e9f7e', 'Permissions']
+};
+let A = { mois: null, sel: null, mode: 'voir', pot: 'ENT', note: false, envoi: {}, minu: null };
+function cleD(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function semaineISO(d) {
+  const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const j = x.getUTCDay() || 7; x.setUTCDate(x.getUTCDate() + 4 - j);
+  const an = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
+  return Math.ceil(((x - an) / 864e5 + 1) / 7);
+}
+function joursAgenda() { return (D.agenda && D.agenda.jours) || {}; }
+/** Récurrents et salaires de tous les mois chargés, rangés par jour. */
+function mouvementsAgenda() {
+  const res = {}, vus = {};
+  const ajout = (j, txt) => { if (j) (res[j] = res[j] || []).push(txt); };
+  [D.budget].concat(Object.values(D.autres || {})).forEach(b => {
+    if (!b || b.erreur || vus[b.onglet]) return; vus[b.onglet] = 1;
+    (b.revenus || []).forEach(r => { if (/salaire/i.test(r.lib || '') && r.jour) ajout(r.jour, [esc(r.lib), r.montant == null ? 'à saisir' : '+' + eur(r.montant)]); });
+    (b.recurrents || []).forEach(r => ajout(r.jour, [esc(r.lib), r.montant == null ? '' : (r.montant > 0 ? '−' : '+') + eur(Math.abs(r.montant))]));
+  });
+  return res;
+}
+function moisAgenda(n) { const m = A.mois; A.mois = new Date(m.getFullYear(), m.getMonth() + n, 1); A.sel = null; A.note = false; vueAgenda(); }
+function toucherJour(j) {
+  if (A.mode === 'peindre') {
+    const J = joursAgenda(), t = A.pot === 'X' ? '' : A.pot;
+    J[j] = Object.assign({ n: '' }, J[j], { t });
+    A.envoi[j] = t; sauver(); vueAgenda();
+    if (navigator.vibrate) navigator.vibrate(8);
+    clearTimeout(A.minu); A.minu = setTimeout(envoyerTypes, 1200);
+    return;
+  }
+  A.sel = A.sel === j ? null : j; A.note = false; vueAgenda();
+}
+function envoyerTypes() {
+  const l = Object.keys(A.envoi).map(j => j + ':' + A.envoi[j]).join(','); A.envoi = {};
+  if (!l) return;
+  attente++; dessinerEtat();
+  file = file.then(() => api({ action: 'agenda', op: 'types', liste: l }))
+    .catch(err => { toast('Non enregistré : ' + err.message); attente = 0; actualiser(false); })
+    .finally(() => { attente = Math.max(0, attente - 1); dessinerEtat(); });
+}
+function enregistrerNote(suppr) {
+  const j = A.sel, n = suppr ? '' : $('agn').value.trim(), J = joursAgenda();
+  J[j] = Object.assign({ t: '' }, J[j], { n });
+  A.note = false; sauver(); vueAgenda();
+  attente++; dessinerEtat();
+  file = file.then(() => api({ action: 'agenda', op: 'note', jour: j, n }))
+    .catch(err => { toast('Non enregistré : ' + err.message); attente = 0; actualiser(false); })
+    .finally(() => { attente = Math.max(0, attente - 1); dessinerEtat(); });
+}
+function modeAgenda(m) { if (A.mode === 'peindre' && m !== 'peindre') { clearTimeout(A.minu); envoyerTypes(); } A.mode = m; A.note = false; vueAgenda(); }
+function detailJour(j, mvts) {
+  const J = joursAgenda()[j] || {}, c = TJ[J.t];
+  const d = new Date(j + 'T12:00'), dt = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  let h = `<div class="c" style="${c ? `border-left:5px solid ${c[0]};border-radius:0 16px 16px 0` : ''}">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="h2">${j === D.auj ? "Aujourd'hui · " : ''}${dt.charAt(0).toUpperCase() + dt.slice(1)}</span>
+  ${c ? `<span class="agt" style="background:${c[0]}">${c[1]}</span>` : '<span class="lab">Pas encore défini</span>'}</div>`;
+  if (A.note) h += `<div class="edit" style="margin-top:8px"><input id="agn" maxlength="200" value="${esc(J.n || '')}" placeholder="Bretagne">
+    <button class="vert" style="background:#f9a8d4;color:#3a1d2e" onclick="enregistrerNote(false)">Enregistrer</button>
+    ${J.n ? '<button class="rouge" style="margin-top:8px" onclick="enregistrerNote(true)">Supprimer la note</button>' : ''}</div>`;
+  else h += `<div class="agev"><span class="agsg big"><i class="ti ti-pencil"></i></span><div style="flex:1">${J.n ? esc(J.n) : '<span class="lab">Aucune note</span>'}</div><button class="bt" onclick="A.note=true;vueAgenda();setTimeout(()=>{const e=$('agn');if(e)e.focus()},60)"><i class="ti ti-pencil"></i> ${J.n ? 'Modifier' : 'Ajouter'}</button></div>`;
+  (mvts[j] || []).forEach(x => h += `<div class="agev"><span class="agsg big"><i class="ti ti-currency-euro"></i></span><div style="flex:1">${x[0]}</div><span>${x[1]}</span></div>`);
+  return h + '</div>';
+}
+function vueAgenda() {
+  if (!D.agenda || D.agenda.erreur) { $('vue').innerHTML = `<div class="titre"><h1 style="color:#f9a8d4">Agenda</h1></div><div class="c vide">Impossible de lire l'agenda${D.agenda && D.agenda.erreur ? ' : ' + esc(D.agenda.erreur) : ''}.</div><div class="etat" id="etat"></div>`; return dessinerEtat(); }
+  const now = new Date(D.auj + 'T12:00');
+  if (!A.mois) A.mois = new Date(now.getFullYear(), now.getMonth(), 1);
+  const m = A.mois, J = joursAgenda(), mvts = mouvementsAgenda();
+  const debut = new Date(m); debut.setDate(1 - ((m.getDay() + 6) % 7));
+  const fin = new Date(m.getFullYear(), m.getMonth() + 1, 0); fin.setDate(fin.getDate() + (7 - (fin.getDay() || 7)));
+  const nomMois = m.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  let grille = '';
+  for (let d = new Date(debut); d <= fin; d.setDate(d.getDate() + 1)) {
+    if ((d.getDay() + 6) % 7 === 0) grille += `<div class="agsem">${semaineISO(d)}</div>`;
+    const j = cleD(d), x = J[j] || {}, c = TJ[x.t], hors = d.getMonth() !== m.getMonth();
+    const ic = hors ? '' : (x.n ? '<span class="agsg"><i class="ti ti-pencil"></i></span>' : '') + (mvts[j] ? '<span class="agsg"><i class="ti ti-currency-euro"></i></span>' : '');
+    grille += `<div class="agj ${c ? '' : 'vide'} ${hors ? 'hors' : ''} ${j === D.auj ? 'auj' : ''} ${j === A.sel && A.mode === 'voir' ? 'sel' : ''}" style="${c ? 'background:' + c[0] : ''}" ${hors ? '' : `onclick="toucherJour('${j}')"`}><div class="n">${d.getDate()}</div><div class="ic">${ic}</div></div>`;
+  }
+  let h = `<div class="titre"><h1 style="color:#f9a8d4">Agenda</h1><div class="mois"><button aria-label="Mois précédent" onclick="moisAgenda(-1)">‹</button><span>${nomMois.charAt(0).toUpperCase() + nomMois.slice(1)}</span><button aria-label="Mois suivant" onclick="moisAgenda(1)">›</button></div></div>
+  <div class="etat" id="etat"></div>`;
+  if (A.sel && A.mode === 'voir') h += detailJour(A.sel, mvts);
+  h += `<div class="c" style="padding:8px 6px"><div class="aggr lab" style="text-align:center;margin-bottom:4px"><span></span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+  <div class="aggr">${grille}</div>
+  <div class="aglg">${Object.keys(TJ).map(k => `<span><i class="agsq" style="background:${TJ[k][0]}"></i>${TJ[k][1]}</span>`).join('')}<span><i class="agsq" style="border:1.5px dashed #4b5563"></i>Inconnu</span></div>
+  <div class="aglg" style="border-top:1px solid #262832;padding-top:8px;margin-top:8px"><span><span class="agsg" style="background:#3a3d48"><i class="ti ti-pencil"></i></span> Note</span><span><span class="agsg" style="background:#3a3d48"><i class="ti ti-currency-euro"></i></span> Mouvement</span></div></div>
+  <div class="bascule" style="cursor:default"><span class="sens ${A.mode === 'voir' ? 'on agon' : ''}" onclick="modeAgenda('voir')"><i class="ti ti-eye"></i> Voir</span><span class="sens ${A.mode === 'peindre' ? 'on agon' : ''}" onclick="modeAgenda('peindre')"><i class="ti ti-brush"></i> Peindre</span></div>`;
+  if (A.mode === 'peindre') h += `<div>${Object.keys(TJ).map(k => `<span class="agpot ${A.pot === k ? 'on' : ''}" style="background:${TJ[k][0]}" onclick="A.pot='${k}';vueAgenda()">${TJ[k][1]}</span>`).join('')}<span class="agpot ${A.pot === 'X' ? 'on' : ''}" style="background:#262832" onclick="A.pot='X';vueAgenda()"><i class="ti ti-eraser"></i> Effacer</span></div>
+    <div class="lab" style="margin:8px 4px">${A.pot === 'X' ? 'Touche les jours à effacer' : 'Touche les jours à colorier'}</div>`;
+  $('vue').innerHTML = h;
+  dessinerEtat();
 }
 
 /* ---------- Onglets à venir ---------- */
