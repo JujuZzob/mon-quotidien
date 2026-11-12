@@ -201,7 +201,7 @@ const P = new URLSearchParams(location.hash.slice(1));
 if (P.get('api') && P.get('k')) { localStorage.setItem('mq_api', P.get('api')); localStorage.setItem('mq_k', P.get('k')); }
 let API = localStorage.getItem('mq_api'), CLE = localStorage.getItem('mq_k');
 
-const VERSION = '12/11 19h45';
+const VERSION = '12/11 20h05';
 const ONGLETS = [
   ['accueil', 'ti-home', 'Accueil', '#7dd3fc'],
   ['budget', 'ti-wallet', 'Budget', '#4ade80'],
@@ -254,7 +254,19 @@ function dessinerEtat() {
 }
 
 /* ---------- Navigation ---------- */
-function aller(o) { if (o !== 'sport') { S.vue = 'jour'; S.chg = null; } if (o !== 'agenda' && A.mode === 'peindre') { clearTimeout(A.minu); envoyerTypes(); A.mode = 'voir'; } onglet = o; localStorage.setItem('mq_onglet', o); dessinerNav(); afficher(); window.scrollTo(0, 0); }
+function aller(o) {
+  if (A.mode === 'peindre') { clearTimeout(A.minu); envoyerTypes(); A.mode = 'voir'; }
+  if (o !== onglet) revenirAujourdhui();
+  onglet = o; localStorage.setItem('mq_onglet', o); dessinerNav(); afficher(); window.scrollTo(0, 0);
+}
+/** À chaque changement d'onglet, tout revient sur la date du jour. */
+function revenirAujourdhui() {
+  if (D) jourVu = D.auj;
+  B.vu = null; B.edit = null; B.form = false;
+  M.jour = null;
+  S.jour = null; S.vue = 'jour'; S.chg = null; S.ed = null;
+  A.mois = null; A.sel = null; A.note = false;
+}
 function dessinerNav() {
   $('nav').innerHTML = ONGLETS.map(x =>
     `<button onclick="aller('${x[0]}')" style="color:${onglet === x[0] ? x[3] : '#6b7280'}"><i class="ti ${x[1]}" aria-hidden="true"></i>${x[2]}</button>`).join('');
