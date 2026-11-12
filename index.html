@@ -175,6 +175,15 @@ input{width:100%;background:#0f1015;border:1px solid #374151;border-radius:10px;
 .sens.on.agon{background:#262832;color:#fff}
 .agpot{display:inline-flex;align-items:center;gap:5px;border-radius:14px;padding:8px 12px;margin:0 5px 6px 0;font-size:13px;font-weight:600;cursor:pointer;border:2px solid transparent;color:#fff}
 .agpot.on{border-color:#fff}
+.acst{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:12px}
+.acj{border-radius:9px;padding:4px 0 5px;color:#fff;height:54px;display:flex;flex-direction:column;align-items:center}
+.acj .l{font-size:11px;opacity:.85}
+.acj .n{font-size:14px;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.acj .i{margin-top:auto;display:flex;gap:2px}.acj .agsg{width:16px;height:16px;font-size:10px}
+.acj.auj{outline:2px solid #fff;outline-offset:1px}
+.acj.vide{border:1.5px dashed #374151;color:#9ca3af}
+.acp{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #262832;margin-top:4px}
+.acp+.acp{margin-top:0}.acp .bd{width:6px;align-self:stretch;border-radius:3px}
 .agsuiv{animation:agS .22s ease-out}.agprec{animation:agP .22s ease-out}
 @keyframes agS{from{transform:translateX(40px);opacity:.3}to{transform:none;opacity:1}}
 @keyframes agP{from{transform:translateX(-40px);opacity:.3}to{transform:none;opacity:1}}
@@ -192,6 +201,7 @@ const P = new URLSearchParams(location.hash.slice(1));
 if (P.get('api') && P.get('k')) { localStorage.setItem('mq_api', P.get('api')); localStorage.setItem('mq_k', P.get('k')); }
 let API = localStorage.getItem('mq_api'), CLE = localStorage.getItem('mq_k');
 
+const VERSION = '12/11 19h45';
 const ONGLETS = [
   ['accueil', 'ti-home', 'Accueil', '#7dd3fc'],
   ['budget', 'ti-wallet', 'Budget', '#4ade80'],
@@ -240,7 +250,7 @@ function dessinerEtat() {
   const el = $('etat'); if (!el) return;
   el.innerHTML = attente > 0 ? '<span class="tourne"><i class="ti ti-refresh"></i></span> Enregistrement…'
     : sync ? '<span class="tourne"><i class="ti ti-refresh"></i></span> Mise à jour…'
-    : `Mis à jour à ${esc(D && D.maj)} <button aria-label="Actualiser" onclick="actualiser(true)"><i class="ti ti-refresh"></i></button>`;
+    : `Mis à jour à ${esc(D && D.maj)} · v. ${VERSION} <button aria-label="Actualiser" onclick="actualiser(true)"><i class="ti ti-refresh"></i></button>`;
 }
 
 /* ---------- Navigation ---------- */
@@ -281,12 +291,12 @@ function enregistrer() {
 
 /* ---------- Accueil ---------- */
 function vueAccueil() {
-  const auj = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const b = D.budget, j = D.jours.find(x => x.jour === D.auj), e = j && j.etat;
-  let h = `<div class="titre"><h1 style="color:#7dd3fc">Bonjour</h1><span class="lab">${auj}</span></div><div class="etat" id="etat"></div>`;
+  let h = carteAgendaAccueil() + '<div class="etat" id="etat"></div>';
   if (b && !b.erreur) h += `<div class="c carte" onclick="aller('budget')"><div class="lab"><i class="ti ti-wallet"></i> Budget</div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="big" style="color:${b.solde < 0 ? '#f87171' : '#4ade80'}">${eur(b.solde)}</span><span style="color:#f472b6">Bitstack ${eur(b.bitstack)}</span></div>
     <div class="lab">Fin de mois prévue ${eur(b.prevision)}${b.salaire ? ' · salaire J-' + b.salaire.dans : ''}</div></div>`;
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">${carteSport()}${carteMenu()}</div>`;
   if (e) {
     const rest = [];
     e.groupes.forEach(g => g.habitudes.forEach(x => { if (!x.repos && !x.complet) rest.push(x.nom); }));
@@ -294,10 +304,45 @@ function vueAccueil() {
     <div style="flex:1;min-width:0"><div style="font-weight:600;color:#2dd4bf">Routine du jour · ${e.faits} / ${e.total}</div>
     <div class="lab">${rest.length ? 'À faire : ' + esc(rest.slice(0, 4).join(', ')) + (rest.length > 4 ? '…' : '') : 'Tout est fait'}</div></div></div>`;
   }
-  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-    ${carteSport()}
-    ${carteMenu()}</div>`;
   $('vue').innerHTML = h;
+}
+/** Carte Agenda de l'accueil : date du jour, 7 prochains jours, 5 prochaines périodes. */
+function carteAgendaAccueil() {
+  const auj = new Date(D.auj + 'T12:00'), J = joursAgenda(), mv = D.agenda && !D.agenda.erreur ? mouvementsAgenda() : {};
+  const dt = auj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const x = J[D.auj] || {}, c = TJ[x.t];
+  const lettres = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  let bande = '';
+  for (let k = 0; k < 7; k++) {
+    const d = new Date(auj); d.setDate(d.getDate() + k);
+    const cj = cleD(d), y = J[cj] || {}, cc = TJ[y.t];
+    bande += `<div class="acj ${k === 0 ? 'auj' : ''} ${cc ? '' : 'vide'}" style="${cc ? 'background:' + cc[0] : ''}"><span class="l">${lettres[d.getDay()]}</span><span class="n">${d.getDate()}</span><span class="i">${y.n ? '<span class="agsg"><i class="ti ti-pencil"></i></span>' : ''}${mv[cj] ? '<span class="agsg"><i class="ti ti-currency-euro"></i></span>' : ''}</span></div>`;
+  }
+  // Périodes à venir (on regroupe les jours qui se suivent avec le même type)
+  const per = [];
+  for (let k = 1; k <= 90 && per.length < 6; k++) {
+    const d = new Date(auj); d.setDate(d.getDate() + k);
+    const y = J[cleD(d)] || {};
+    const der = per[per.length - 1];
+    const suit = der && der.t === y.t && Math.round((d - der.fin) / 864e5) === 1;
+    if (!y.t) continue;
+    if (suit) { der.fin = d; if (y.n && der.notes.indexOf(y.n) < 0) der.notes.push(y.n); }
+    else per.push({ t: y.t, debut: d, fin: d, notes: y.n ? [y.n] : [] });
+  }
+  if (per.length === 6) per.pop();
+  const fj = (d, avecMois) => { const t = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }) + (avecMois ? ' ' + d.toLocaleDateString('fr-FR', { month: 'short' }) : ''); return t; };
+  const lignes = per.map(p => {
+    const mois = p.debut.getMonth() !== auj.getMonth() || p.fin.getMonth() !== auj.getMonth();
+    let l = fj(p.debut, mois); if (p.fin > p.debut) l += ' – ' + fj(p.fin, mois);
+    l = l.charAt(0).toUpperCase() + l.slice(1);
+    return `<div class="acp"><div class="bd" style="background:${TJ[p.t][0]}"></div><div style="flex:1">${esc(l)}<div class="lab">${TJ[p.t][1]}${p.notes.length ? ' · ' + esc(p.notes.join(', ')) : ''}</div></div></div>`;
+  }).join('');
+  return `<div class="c carte" style="border:1px solid #3a2232" onclick="A.mois=null;A.sel=null;aller('agenda')">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span class="lab"><i class="ti ti-calendar" style="color:#f9a8d4"></i> Agenda · semaine ${semaineISO(auj)}</span><i class="ti ti-chevron-right" style="color:#6b7280"></i></div>
+    <div style="font-size:26px;font-weight:600;margin-top:6px;line-height:1.15">${dt.charAt(0).toUpperCase() + dt.slice(1)}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><span class="lab" style="font-size:13px;${x.n ? 'color:#e6e6ea' : ''}">${x.n ? '<i class="ti ti-pencil"></i> ' + esc(x.n) : 'Aucune note'}</span>${c ? `<span class="agt" style="background:${c[0]}">${c[1]}</span>` : ''}</div>
+    <div class="acst">${bande}</div>
+    ${lignes ? '<div class="lab" style="margin-top:12px">À venir</div>' + lignes : ''}</div>`;
 }
 
 /* ---------- Routine ---------- */
@@ -892,22 +937,21 @@ function vueAgenda() {
     <div class="lab" style="margin:8px 4px">${A.pot === 'X' ? 'Touche les jours à effacer' : 'Touche les jours à colorier'}</div>`;
   $('vue').innerHTML = h;
   A.anim = '';
-  glisserMois($('agcal'));
   dessinerEtat();
 }
-/** Glisser le calendrier vers la gauche ou la droite pour changer de mois. */
-function glisserMois(el) {
-  if (!el) return;
-  let x0 = null, y0 = 0;
-  el.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
-  el.addEventListener('touchend', e => {
-    if (x0 === null) return;
-    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    A.anim = dx < 0 ? 'agsuiv' : 'agprec';
-    moisAgenda(dx < 0 ? 1 : -1);
-  });
-}
+/** Glisser vers la gauche ou la droite (n'importe où sur l'écran Agenda) pour changer de mois. */
+let gX = null, gY = 0;
+document.addEventListener('touchstart', e => {
+  if (onglet !== 'agenda' || e.touches.length !== 1 || e.target.closest('nav,input,.edit')) { gX = null; return; }
+  gX = e.touches[0].clientX; gY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (gX === null || onglet !== 'agenda') return;
+  const dx = e.changedTouches[0].clientX - gX, dy = e.changedTouches[0].clientY - gY; gX = null;
+  if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+  A.anim = dx < 0 ? 'agsuiv' : 'agprec';
+  moisAgenda(dx < 0 ? 1 : -1);
+}, { passive: true });
 
 /* ---------- Onglets à venir ---------- */
 function vueBientot() {
