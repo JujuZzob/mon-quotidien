@@ -201,7 +201,7 @@ const P = new URLSearchParams(location.hash.slice(1));
 if (P.get('api') && P.get('k')) { localStorage.setItem('mq_api', P.get('api')); localStorage.setItem('mq_k', P.get('k')); }
 let API = localStorage.getItem('mq_api'), CLE = localStorage.getItem('mq_k');
 
-const VERSION = '13/11 11h30';
+const VERSION = '13/11 12h50';
 const ONGLETS = [
   ['accueil', 'ti-home', 'Accueil', '#7dd3fc'],
   ['agenda', 'ti-calendar', 'Agenda', '#f9a8d4'],
@@ -352,7 +352,7 @@ function carteAgendaAccueil() {
   return `<div class="c carte" style="border:1px solid #3a2232" onclick="A.mois=null;A.sel=null;aller('agenda')">
     <div style="display:flex;justify-content:space-between;align-items:center"><span class="lab"><i class="ti ti-calendar" style="color:#f9a8d4"></i> Agenda · semaine ${semaineISO(auj)}</span><i class="ti ti-chevron-right" style="color:#6b7280"></i></div>
     <div style="font-size:26px;font-weight:600;margin-top:6px;line-height:1.15">${dt.charAt(0).toUpperCase() + dt.slice(1)}</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><span class="lab" style="font-size:13px;${x.n ? 'color:#e6e6ea' : ''}">${x.n ? '<i class="ti ti-pencil"></i> ' + esc(x.n) : 'Aucune note'}</span>${c ? `<span class="agt" style="background:${c[0]}">${c[1]}</span>` : ''}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><span class="lab" style="font-size:13px;${x.n ? 'color:#e6e6ea' : ''}">${x.n ? '<i class="ti ti-pencil"></i> ' + esc(x.n) : 'Aucune note'}</span></div>
     <div class="acst">${bande}</div>
     ${lignes ? '<div class="lab" style="margin-top:12px">À venir</div>' + lignes : ''}</div>`;
 }
